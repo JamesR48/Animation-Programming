@@ -7,7 +7,7 @@ out vec4 FragColor;
 
 uniform sampler2D tex;
 
-vec3 LightPos = vec3(4.0, 5.0, -3.0);
+vec3 LightPos = vec3(4.0, 3.0, 6.0);
 vec3 LightColor = vec3(0.5, 0.5, 0.5);
 
 void main()

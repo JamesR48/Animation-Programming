@@ -8,6 +8,9 @@
 #include <tiny_gltf.h>
 #include <glm/fwd.hpp>
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/dual_quaternion.hpp>
+
 class OGLRenderData;
 class Texture;
 class GltfNode;
@@ -24,7 +27,7 @@ public:
     void Cleanup();
     void UploadVertexBuffers();
     void UploadIndexBuffer();
-    void ApplyCPUVertexSkinning();
+    void ApplyCPUVertexSkinning(bool bEnableDualQuats);
     std::shared_ptr<OGLMesh> GetSkeleton(bool bEnableSkinning);
     int GetJointMatrixSize() const;
     void GetJointMatrices(std::vector<glm::mat4>& OutJointMatrices);
@@ -56,6 +59,8 @@ private:
     std::vector<glm::mat2x4> mJointDualQuats{};
     // To calculate the binding pose of the model
     std::vector<glm::mat4> mInverseBindMatrices{};
+
+    std::vector<glm::dualquat> mJointCPUDualQuats{};
 
     std::vector<int> mAttribAccessors{};
     // look up table of joints per vertex indices

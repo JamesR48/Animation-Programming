@@ -30,6 +30,6 @@ void main()
     aJointWeight.w * JointMat[int(aJointIndices.w)];
 
     gl_Position = Projection * View * SkinMat * vec4(aPos, 1.0);
-    Normal = aNormal;
+    Normal = vec3(transpose(inverse(SkinMat)) * vec4(aNormal, 1.0));
     TexCoord = aTexCoord;
 }

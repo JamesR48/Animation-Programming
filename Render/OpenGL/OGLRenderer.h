@@ -9,7 +9,6 @@
 struct GLFWwindow;
 class Shader;
 class Framebuffer;
-class Texture;
 class VertexBuffer;
 class UniformBuffer;
 class ShaderStorageBuffer;
@@ -40,7 +39,6 @@ public:
 private:
     // subsystems
     std::unique_ptr<Framebuffer> mFramebuffer = nullptr;
-    std::unique_ptr<Texture> mTex = nullptr;
     std::unique_ptr<VertexBuffer> mVertexBuffer = nullptr;
     std::unique_ptr<UniformBuffer> mUniformBuffer = nullptr;
     std::unique_ptr<ShaderStorageBuffer> mGltfShaderStorageBuffer = nullptr;
@@ -57,7 +55,6 @@ private:
     std::unique_ptr<Timer> mUIDrawTimer = nullptr;
 
     // shaders
-    std::unique_ptr<Shader> mShaderBasic = nullptr;
     std::unique_ptr<Shader> mLineShader = nullptr;
     std::unique_ptr<Shader> mGltfShader = nullptr;
     std::unique_ptr<Shader> mGltfGPUShader = nullptr;
@@ -71,8 +68,6 @@ private:
     OGLMesh mEndPosArrowMesh{};
     OGLMesh mQuatPosArrowMesh{};
 
-    std::unique_ptr<Model_OpenGL> mModel = nullptr;
-    std::unique_ptr<OGLMesh> mModelMesh = nullptr;
     std::unique_ptr<OGLMesh> mAllMeshes = nullptr;
 
     std::unique_ptr<SplineModel> mSplineModel = nullptr;

@@ -72,7 +72,7 @@ struct OGLRenderData
     bool rdDrawGltfModel = true;
     bool rdDrawSkeleton = true;
     bool rdGPUVertexSkinning = true;
-    bool rdGPUDualQuatVertexSkinning = false;
+    bool rdDualQuatVertexSkinning = false;
 
 };
 

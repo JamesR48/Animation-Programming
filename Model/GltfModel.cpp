@@ -5,9 +5,7 @@
 
 #include "GltfModel.h"
 
-#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/dual_quaternion.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 
 #include "GltfNode.h"
@@ -168,7 +166,7 @@ void GltfModel::UploadIndexBuffer()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, IndexBufferView.byteLength,&IndexBuffer.data.at(0) + IndexBufferView.byteOffset, GL_STATIC_DRAW);
 }
 
-void GltfModel::ApplyCPUVertexSkinning()
+void GltfModel::ApplyCPUVertexSkinning(bool bEnableDualQuats)
 {
     if (mModel == nullptr)
     {
@@ -188,20 +186,69 @@ void GltfModel::ApplyCPUVertexSkinning()
         glm::ivec4 JointIndex = glm::make_vec4(mJointVec.at(i));
         glm::vec4 WeightIndex = glm::make_vec4(mWeightVec.at(i));
 
-        // vertex skinning matrix
-        glm::mat4 skinMat =
-        WeightIndex.x * mJointMatrices.at(JointIndex.x) +
-        WeightIndex.y * mJointMatrices.at(JointIndex.y) +
-        WeightIndex.z * mJointMatrices.at(JointIndex.z) +
-        WeightIndex.w * mJointMatrices.at(JointIndex.w);
+        glm::mat4 SkinMat;
 
-        mAlteredPositions.at(i) = skinMat * glm::vec4(mAlteredPositions.at(i), 1.0f);
+        if (bEnableDualQuats)
+        {
+            // extract dual quaterions
+            glm::dualquat dq0 = mJointCPUDualQuats.at(JointIndex.x);
+            glm::dualquat dq1 = mJointCPUDualQuats.at(JointIndex.y);
+            glm::dualquat dq2 = mJointCPUDualQuats.at(JointIndex.z);
+            glm::dualquat dq3 = mJointCPUDualQuats.at(JointIndex.w);
+
+            // shortest rotation
+            WeightIndex.y *= glm::sign(glm::dot(dq0.real, dq1.real));
+            WeightIndex.z *= glm::sign(glm::dot(dq0.real, dq2.real));
+            WeightIndex.w *= glm::sign(glm::dot(dq0.real, dq3.real));
+
+            // blending, interpolation between the four dual quaternions
+            glm::dualquat BlendedDQ =
+                WeightIndex.x * dq0 +
+                WeightIndex.y * dq1 +
+                WeightIndex.z * dq2 +
+                WeightIndex.w * dq3;
+
+            BlendedDQ = glm::normalize(BlendedDQ);
+            glm::quat r = BlendedDQ.real;
+            glm::quat t = BlendedDQ.dual;
+
+            SkinMat = glm::mat4(
+                1.0 - (2.0 * r.y * r.y) - (2.0 * r.z * r.z),
+                (2.0 * r.x * r.y) + (2.0 * r.w * r.z),
+                (2.0 * r.x * r.z) - (2.0 * r.w * r.y),
+                0.0,
+
+                (2.0 * r.x * r.y) - (2.0 * r.w * r.z),
+                1.0 - (2.0 * r.x * r.x) - (2.0 * r.z * r.z),
+                (2.0 * r.y * r.z) + (2.0 * r.w * r.x),
+                0.0,
+
+                (2.0 * r.x * r.z) + (2.0 * r.w * r.y),
+                (2.0 * r.y * r.z) - (2.0 * r.w * r.x),
+                1.0 - (2.0 * r.x * r.x) - (2.0 * r.y * r.y),
+                0.0,
+
+                2.0 * (-t.w * r.x + t.x * r.w - t.y * r.z + t.z * r.y),
+                2.0 * (-t.w * r.y + t.x * r.z + t.y * r.w - t.z * r.x),
+                2.0 * (-t.w * r.z - t.x * r.y + t.y * r.x + t.z * r.w),
+                1);
+        }
+        else
+        {
+            // vertex skinning matrix
+            SkinMat =
+            WeightIndex.x * mJointMatrices.at(JointIndex.x) +
+            WeightIndex.y * mJointMatrices.at(JointIndex.y) +
+            WeightIndex.z * mJointMatrices.at(JointIndex.z) +
+            WeightIndex.w * mJointMatrices.at(JointIndex.w);
+        }
+
+        mAlteredPositions.at(i) = SkinMat * glm::vec4(mAlteredPositions.at(i), 1.0f);
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, mVertexVBO.at(0));
     glBufferData(GL_ARRAY_BUFFER, BufferView.byteLength, mAlteredPositions.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-
 }
 
 std::shared_ptr<OGLMesh> GltfModel::GetSkeleton(bool bEnableSkinning)
@@ -435,6 +482,7 @@ void GltfModel::GetInvBindMatrices()
     mJointMatrices.resize(Skin.joints.size());
     mJointDualQuats.resize(Skin.joints.size());
 
+    mJointCPUDualQuats.resize(Skin.joints.size());
 
     std::memcpy(mInverseBindMatrices.data(), &Buffer.data.at(0) + BufferView.byteOffset, BufferView.byteLength);
 }
@@ -513,9 +561,12 @@ void GltfModel::GetNodeData(std::shared_ptr<GltfNode> TreeNode, const glm::mat4 
     /* create dual quaternion */
     if (glm::decompose(mJointMatrices.at(mNodeToJoint.at(NodeIndex)), Scale, Orientation,Translation, Skew, Perspective))
     {
+        // qTranslation = 1/2 * t * qRotation
         DualQuat[0] = Orientation;
         DualQuat[1] = glm::quat(0.0, Translation.x, Translation.y, Translation.z) * Orientation * 0.5f;
         mJointDualQuats.at(mNodeToJoint.at(NodeIndex)) = glm::mat2x4_cast(DualQuat);
+
+        mJointCPUDualQuats.at(mNodeToJoint.at(NodeIndex)) = DualQuat;
     }
     else
     {

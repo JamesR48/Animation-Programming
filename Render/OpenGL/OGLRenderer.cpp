@@ -16,13 +16,11 @@
 #include "VertexBuffer.h"
 #include "UniformBuffer.h"
 #include "ShaderStorageBuffer.h"
-#include "Texture.h"
 #include "Shader.h"
 #include "UserInterface.h"
 #include "../../Tools/Logger.h"
 #include "../../Tools/Timer.h"
 #include "../../Tools/Camera.h"
-#include "../../Model/Model_OpenGL.h"
 #include "../../Model/ArrowModel.h"
 #include "../../Model/CoordArrowsModel.h"
 #include "../../Model/GltfModel.h"
@@ -51,14 +49,12 @@ bool OGLRenderer::Init(unsigned int Width, unsigned int Height)
     }
 
     // Safely allocate objects on the heap after GL context initialization
-    mShaderBasic = std::make_unique<Shader>();
     mLineShader = std::make_unique<Shader>();
     mGltfShader = std::make_unique<Shader>();
     mGltfGPUShader = std::make_unique<Shader>();
     mGltfGPUDualQuatShader = std::make_unique<Shader>();
 
     mFramebuffer = std::make_unique<Framebuffer>();
-    mTex = std::make_unique<Texture>();
     mVertexBuffer = std::make_unique<VertexBuffer>();
     mUniformBuffer = std::make_unique<UniformBuffer>();
     mGltfShaderStorageBuffer = std::make_unique<ShaderStorageBuffer>();
@@ -76,8 +72,6 @@ bool OGLRenderer::Init(unsigned int Width, unsigned int Height)
     mSplineModel = std::make_unique<SplineModel>();
     mArrowModel = std::make_unique<ArrowModel>();
     mCoordArrowsModel = std::make_unique<CoordArrowsModel>();
-    mModel = std::make_unique<Model_OpenGL>();
-    mModelMesh = std::make_unique<OGLMesh>();
     Logger::Log(1, "%s: model mesh storage initialized\n", __FUNCTION__);
     mAllMeshes = std::make_unique<OGLMesh>();
     Logger::Log(1, "%s: global mesh storage initialized\n", __FUNCTION__);
@@ -99,13 +93,6 @@ bool OGLRenderer::Init(unsigned int Width, unsigned int Height)
     }
     Logger::Log(1, "%s: framebuffer succesfully initialized\n", __FUNCTION__);
 
-    if (!mTex->LoadTexture( "Resources/Textures/crate.png"))
-    {
-        Logger::Log(1, "%s: texture loading failed\n", __FUNCTION__);
-        return false;
-    }
-    Logger::Log(1, "%s: texture successfully loaded\n", __FUNCTION__);
-
     mVertexBuffer->Init();
     Logger::Log(1, "%s: vertex buffer successfully created\n", __FUNCTION__);
 
@@ -116,11 +103,6 @@ bool OGLRenderer::Init(unsigned int Width, unsigned int Height)
     size_t ModelJointMatrixBufferSize = mGltfModel->GetJointMatrixSize() * sizeof(glm::mat4);
     mGltfShaderStorageBuffer->Init(ModelJointMatrixBufferSize);
     Logger::Log(1, "%s: glTF joint matrix shader storage buffer (size %i bytes) successfully created\n", __FUNCTION__, ModelJointMatrixBufferSize);
-
-    if (!mShaderBasic->LoadShaders( "Shaders/Basic.vert", "Shaders/Basic.frag"))
-    {
-        return false;
-    }
 
     if (!mLineShader->LoadShaders( "Shaders/Line.vert", "Shaders/Line.frag"))
     {
@@ -215,7 +197,7 @@ void OGLRenderer::Draw()
 
     if (mRenderData.rdGPUVertexSkinning)
     {
-        if (mRenderData.rdGPUDualQuatVertexSkinning)
+        if (mRenderData.rdDualQuatVertexSkinning)
         {
             std::vector<glm::mat2x4> JointDualQuatMatrices;
             mGltfModel->GetJointDualQuats(JointDualQuatMatrices);
@@ -344,6 +326,7 @@ void OGLRenderer::Draw()
         mAllMeshes->Vertices.insert(mAllMeshes->Vertices.end(),mSplineMesh.Vertices.begin(), mSplineMesh.Vertices.end());
     }
 
+#if 0
     /* draw the model itself */
     *mModelMesh = mModel->GetVertexData();
     mRenderData.rdTriangleCount = mModelMesh ->Vertices.size() / 3;
@@ -356,6 +339,7 @@ void OGLRenderer::Draw()
             Vert.Position.z = NewPosition.z + InterpolatedPosition.z;
     });
     mAllMeshes->Vertices.insert(mAllMeshes->Vertices.end(),mModelMesh ->Vertices.begin(), mModelMesh ->Vertices.end());
+#endif
 
     /* upload vertex data */
     mUploadToVBOTimer->Start();
@@ -380,7 +364,7 @@ void OGLRenderer::Draw()
     if (!mRenderData.rdGPUVertexSkinning)
     {
         /* glTF vertex skinning, overwrites position buffer, needs upload on every frame */
-        mGltfModel->ApplyCPUVertexSkinning();
+        mGltfModel->ApplyCPUVertexSkinning(mRenderData.rdDualQuatVertexSkinning);
     }
 
     mRenderData.rdUploadToVBOTime = mUploadToVBOTimer->Stop();
@@ -396,19 +380,12 @@ void OGLRenderer::Draw()
         mVertexBuffer->BindAndDraw(GL_LINES, 0, mLineIndexCount);
     }
 
-    /* draw the box model */
-    mShaderBasic->Use();
-    mTex->Bind();
-    // vertex data is sent to the GPU to be processed by the shaders (bind, draw, unbind all together)
-    mVertexBuffer->BindAndDraw(GL_TRIANGLES, mLineIndexCount, mRenderData.rdTriangleCount * 3);
-    mTex->Unbind();
-
     /* draw the glTF model */
     if (mRenderData.rdDrawGltfModel)
     {
         if (mRenderData.rdGPUVertexSkinning)
         {
-            if (mRenderData.rdGPUDualQuatVertexSkinning)
+            if (mRenderData.rdDualQuatVertexSkinning)
             {
                 mGltfGPUDualQuatShader->Use();
             }
@@ -442,8 +419,6 @@ void OGLRenderer::Draw()
 
 void OGLRenderer::Cleanup()
 {
-    mShaderBasic->Cleanup();
-    mShaderBasic.reset();
     mLineShader->Cleanup();
     mLineShader.reset();
     mGltfShader->Cleanup();
@@ -453,8 +428,6 @@ void OGLRenderer::Cleanup()
     mGltfGPUDualQuatShader->Cleanup();
     mGltfGPUDualQuatShader.reset();
 
-    mTex->Cleanup();
-    mTex.reset();
     mVertexBuffer->Cleanup();
     mVertexBuffer.reset();
     mFramebuffer->Cleanup();

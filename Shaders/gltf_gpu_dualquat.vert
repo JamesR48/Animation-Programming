@@ -50,11 +50,21 @@ mat4 GetSkinMat() {
     vec4 t = bone[1]; // translation
 
     /*
+        quat = a + bi + cj + dk; |quat| = 1
+
+                 |  (1 − 2c^2 − 2d^2)    (2bc − 2ad)       (2bd + 2ac)    |
+        RotMat = |     (2bc + 2ad)    (1 − 2b^2 − 2d^2)    (2cd − 2ab)    |
+                 |     (2bd − 2ac)       (2cd + 2ab)    (1 − 2b^2 − 2c^2) |
+
+        qTranslation = 1/2 * t * qRotation
+        ---> t = 2 * q * p
+        where t is translation; q is the dual-quat translation; p is the conjugate of the dual-quat rotation
+
         The transformation matrix is created in the GLSL column-major format
-            |             tx |
-        T = |     Rot     ty |
-            |             tz |
-            | 0  0  0  0  1  |
+            |                tx |
+        T = |     RotMat     ty |
+            |                tz |
+            |  0    0    0    1 |
     */
     return mat4(
             1.0 - (2.0 * r.y * r.y) - (2.0 * r.z * r.z),
@@ -80,7 +90,8 @@ mat4 GetSkinMat() {
 
 void main()
 {
-    gl_Position = Projection * View * GetSkinMat() * vec4(aPos, 1.0);
-    Normal = aNormal;
+    mat4 SkinMat = GetSkinMat();
+    gl_Position = Projection * View * SkinMat * vec4(aPos, 1.0);
+    Normal = vec3(transpose(inverse(SkinMat)) * vec4(aNormal, 1.0));
     TexCoord = aTexCoord;
 }

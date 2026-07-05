@@ -215,23 +215,15 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
             ImGui::Text("Code");
         }
         ImGui::Indent();
-        if (!InOutRenderData.rdGPUVertexSkinning)
-        {
-            ImGui::BeginDisabled();
-        }
-        ImGui::Checkbox("GPU Vertex Skinning Method:", &InOutRenderData.rdGPUDualQuatVertexSkinning);
+        ImGui::Checkbox("GPU Vertex Skinning Method:", &InOutRenderData.rdDualQuatVertexSkinning);
         ImGui::SameLine();
-        if (InOutRenderData.rdGPUDualQuatVertexSkinning)
+        if (InOutRenderData.rdDualQuatVertexSkinning)
         {
             ImGui::Text("Dual Quaternion");
         }
         else
         {
             ImGui::Text("Linear");
-        }
-        if (!InOutRenderData.rdGPUVertexSkinning)
-        {
-            ImGui::EndDisabled();
         }
     }
 
