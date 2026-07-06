@@ -4,16 +4,22 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <map>
 #include <glad/gl.h>
-#include <tiny_gltf.h>
 #include <glm/fwd.hpp>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/dual_quaternion.hpp>
 
+namespace tinygltf
+{
+    class Model;
+};
+
 class OGLRenderData;
 class Texture;
 class GltfNode;
+class GltfAnimationClip;
 struct OGLMesh;
 
 class GltfModel
@@ -28,18 +34,23 @@ public:
     void UploadVertexBuffers();
     void UploadIndexBuffer();
     void ApplyCPUVertexSkinning(bool bEnableDualQuats);
-    std::shared_ptr<OGLMesh> GetSkeleton(bool bEnableSkinning);
+    std::shared_ptr<OGLMesh> GetSkeleton();
     int GetJointMatrixSize() const;
     void GetJointMatrices(std::vector<glm::mat4>& OutJointMatrices);
     int GetJointDualQuatsSize() const;
     void GetJointDualQuats(std::vector<glm::mat2x4>& OutJointDualQuats);
+
+    void PlayAnimation(const int AnimIndex, const float PlaybackSpeed);
+    void SetAnimationFrame(const int AnimIndex, float Time);
+    float GetAnimationEndTime(const int AnimIndex) const;
+    void GetClipName(const int AnimIndex, std::string& Name);
 
 private:
     void CreateVertexBuffers();
     void CreateIndexBuffer();
     int GetTriangleCount() const;
 
-    void GetSkeletonPerNode(std::shared_ptr<GltfNode> TreeNode, bool bEnableSkinning);
+    void GetSkeletonPerNode(std::shared_ptr<GltfNode> TreeNode);
     void GetJointData();
     void GetWeightData();
     void GetInvBindMatrices();
@@ -47,10 +58,15 @@ private:
     /* reads the children from the corresponding node in the glTF model file and adds the correct number
     of – as yet empty – child nodes. Next, it reads the node matrix from the node given as a parameter
     and calls getNodeData() and getNodes() for every created child, traversing and creating a tree of the nodes. */
-    void GetNodes(std::shared_ptr<GltfNode> TreeNode);
+    void GetNodes(std::shared_ptr<GltfNode>& TreeNode);
 
     // sets the node values for translation, rotation, scale. Triggers the calculation of the LocalTRS and Node matrices
-    void GetNodeData(std::shared_ptr<GltfNode> TreeNode, const glm::mat4& ParentNodeMatrix);
+    void GetNodeData(std::shared_ptr<GltfNode>& TreeNode, const glm::mat4& ParentNodeMatrix);
+
+    void UpdateNodeMatrices(std::shared_ptr<GltfNode>& TreeNode, const glm::mat4& ParentNodeMatrix);
+    void UpdateJointMatricesAndQuats(std::shared_ptr<GltfNode>& TreeNode);
+
+    void GetAnimations();
 
     std::vector<glm::tvec4<uint16_t>> mJointVec{};
     std::vector<glm::vec4> mWeightVec{};
@@ -70,6 +86,10 @@ private:
 
     std::shared_ptr<OGLMesh> mSkeletonMesh = nullptr;
     std::shared_ptr<GltfNode> mRootNode = nullptr;
+
+    std::vector<std::shared_ptr<GltfNode>> mNodeList;
+
+    std::vector<std::shared_ptr<GltfAnimationClip>> mAnimClips{};
 
     std::unique_ptr<tinygltf::Model> mModel = nullptr;
     std::unique_ptr<Texture> mTex = nullptr;

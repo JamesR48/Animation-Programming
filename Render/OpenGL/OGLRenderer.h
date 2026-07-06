@@ -77,6 +77,9 @@ private:
 
     unsigned int mLineIndexCount = 0;
 
+    std::shared_ptr<OGLMesh> mSkeletonMesh = nullptr;
+    unsigned int mSkeletonLineIndexCount = 0;
+
     OGLRenderData mRenderData{};
 
     glm::quat mQuatModelOrientation[2] = { glm::quat(), glm::quat() };

@@ -1,17 +1,24 @@
 // Implementing TinyGltf and making it skip its stb implementations (Texture class is using them too!)
-#define TINYGLTF_IMPLEMENTATION
-#define TINYGLTF_NO_STB_IMAGE
-#define TINYGLTF_NO_STB_IMAGE_WRITE
+//#define TINYGLTF_IMPLEMENTATION
+//#define TINYGLTF_NO_STB_IMAGE
+//#define TINYGLTF_NO_STB_IMAGE_WRITE
 
 #include "GltfModel.h"
 
+#include <chrono>
+#include <cmath>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 
+#include "GltfAnimationClip.h"
 #include "GltfNode.h"
 #include "../Render/OpenGL/Texture.h"
 #include "../Render/OpenGL/OGLRenderData.h"
 #include "../Tools/Logger.h"
+
+#define TINYGLTF_NO_STB_IMAGE
+#define TINYGLTF_NO_STB_IMAGE_WRITE
+#include <tiny_gltf.h>
 
 GltfModel::GltfModel()
 {
@@ -73,11 +80,18 @@ bool GltfModel::LoadModel(OGLRenderData &RenderData, std::string ModelFilename, 
     mRootNode = GltfNode::CreateRoot(RootNodeIndex);
     Logger::Log(1, "%s: model has %i nodes, root node is %i\n", __FUNCTION__, NodeCount, RootNodeIndex);
 
+    mNodeList.resize(NodeCount);
+    mNodeList.at(RootNodeIndex) = mRootNode;
+
     GetNodeData(mRootNode, glm::mat4(1.0f));
     GetNodes(mRootNode);
     mRootNode->PrintTree();
 
     mSkeletonMesh = std::make_shared<OGLMesh>();
+
+    /* extract animation data */
+    GetAnimations();
+    RenderData.rdAnimClipSize = mAnimClips.size();
 
     return true;
 }
@@ -251,7 +265,7 @@ void GltfModel::ApplyCPUVertexSkinning(bool bEnableDualQuats)
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-std::shared_ptr<OGLMesh> GltfModel::GetSkeleton(bool bEnableSkinning)
+std::shared_ptr<OGLMesh> GltfModel::GetSkeleton()
 {
     if (mSkeletonMesh == nullptr)
     {
@@ -264,7 +278,7 @@ std::shared_ptr<OGLMesh> GltfModel::GetSkeleton(bool bEnableSkinning)
     /* start from Armature child */
     std::vector<std::shared_ptr<GltfNode>> ChildrenNodes;
     mRootNode->GetChildren(ChildrenNodes);
-    GetSkeletonPerNode(ChildrenNodes.at(0), bEnableSkinning);
+    GetSkeletonPerNode(ChildrenNodes.at(0));
     return mSkeletonMesh;
 }
 
@@ -286,6 +300,53 @@ int GltfModel::GetJointDualQuatsSize() const
 void GltfModel::GetJointDualQuats(std::vector<glm::mat2x4> &OutJointDualQuats)
 {
     OutJointDualQuats = mJointDualQuats;
+}
+
+void GltfModel::PlayAnimation(const int AnimIndex, const float PlaybackSpeed)
+{
+    if (mAnimClips.empty() || (AnimIndex < 0) || (AnimIndex >= mAnimClips.size()))
+    {
+        Logger::Log(1, "%s: no valid animations to play\n", __FUNCTION__);
+        return;
+    }
+
+    double CurrentTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    double AnimTime = std::fmod((CurrentTime / 1000.0) * PlaybackSpeed, mAnimClips.at(AnimIndex)->GetClipEndTime());
+    SetAnimationFrame(AnimIndex, AnimTime);
+}
+
+void GltfModel::SetAnimationFrame(const int AnimIndex, float Time)
+{
+    if (mAnimClips.empty() || (AnimIndex < 0) || (AnimIndex >= mAnimClips.size()))
+    {
+        Logger::Log(1, "%s: no valid animations\n", __FUNCTION__);
+        return;
+    }
+
+    mAnimClips.at(AnimIndex)->SetAnimationFrame(mNodeList, Time);
+    UpdateNodeMatrices(mRootNode, glm::mat4(1.0f));
+}
+
+float GltfModel::GetAnimationEndTime(const int AnimIndex) const
+{
+    if (mAnimClips.empty() || (AnimIndex < 0) || (AnimIndex >= mAnimClips.size()))
+    {
+        Logger::Log(1, "%s: no valid animations\n", __FUNCTION__);
+        return 0.0f;
+    }
+
+    return mAnimClips.at(AnimIndex)->GetClipEndTime();
+}
+
+void GltfModel::GetClipName(const int AnimIndex, std::string &Name)
+{
+    if (mAnimClips.empty() || (AnimIndex < 0) || (AnimIndex >= mAnimClips.size()))
+    {
+        Logger::Log(1, "%s: no valid animations\n", __FUNCTION__);
+        return;
+    }
+
+    Name = mAnimClips.at(AnimIndex)->GetClipName();
 }
 
 void GltfModel::CreateVertexBuffers()
@@ -406,8 +467,33 @@ int GltfModel::GetTriangleCount() const
     return Triangles;
 }
 
-void GltfModel::GetSkeletonPerNode(std::shared_ptr<GltfNode> TreeNode, bool bEnableSkinning)
+void GltfModel::GetSkeletonPerNode(std::shared_ptr<GltfNode> TreeNode)
 {
+    glm::vec3 ParentPos = glm::vec3(0.0f);
+    glm::mat4 NodeMatrix;
+    TreeNode->GetNodeMatrix(NodeMatrix);
+    ParentPos = glm::vec3(NodeMatrix[3]);
+    OGLVertex parentVertex;
+    parentVertex.Position = ParentPos;
+    parentVertex.Color = glm::vec3(0.0f, 1.0f, 1.0f);
+
+    std::vector<std::shared_ptr<GltfNode>> ChildrenNodes;
+    TreeNode->GetChildren(ChildrenNodes);
+    for (const auto& ChildNode : ChildrenNodes)
+    {
+        glm::vec3 childPos = glm::vec3(0.0f);
+        glm::mat4 NodeMatrix;
+        ChildNode->GetNodeMatrix(NodeMatrix);
+        childPos = glm::vec3(NodeMatrix[3]);
+        OGLVertex childVertex;
+        childVertex.Position = childPos;
+        childVertex.Color = glm::vec3(0.0f, 0.0f, 1.0f);
+        mSkeletonMesh->Vertices.emplace_back(parentVertex);
+        mSkeletonMesh->Vertices.emplace_back(childVertex);
+
+        GetSkeletonPerNode(ChildNode);
+    }
+
 }
 
 void GltfModel::GetJointData()
@@ -487,7 +573,7 @@ void GltfModel::GetInvBindMatrices()
     std::memcpy(mInverseBindMatrices.data(), &Buffer.data.at(0) + BufferView.byteOffset, BufferView.byteLength);
 }
 
-void GltfModel::GetNodes(std::shared_ptr<GltfNode> TreeNode)
+void GltfModel::GetNodes(std::shared_ptr<GltfNode>& TreeNode)
 {
     if (TreeNode == nullptr || mModel == nullptr)
     {
@@ -512,12 +598,13 @@ void GltfModel::GetNodes(std::shared_ptr<GltfNode> TreeNode)
 
     for (auto &ChildNode : ChildrenNodes)
     {
+        mNodeList.at(ChildNode->GetNodeIndex()) = ChildNode;
         GetNodeData(ChildNode, TreeNodeMatrix);
         GetNodes(ChildNode);
     }
 }
 
-void GltfModel::GetNodeData(std::shared_ptr<GltfNode> TreeNode, const glm::mat4 &ParentNodeMatrix)
+void GltfModel::GetNodeData(std::shared_ptr<GltfNode>& TreeNode, const glm::mat4 &ParentNodeMatrix)
 {
     if (TreeNode == nullptr || mModel == nullptr)
     {
@@ -544,11 +631,45 @@ void GltfModel::GetNodeData(std::shared_ptr<GltfNode> TreeNode, const glm::mat4 
     TreeNode->CalculateLocalTRSMatrix();
     TreeNode->CalculateNodeMatrix(ParentNodeMatrix);
 
+    UpdateJointMatricesAndQuats(TreeNode);
+}
+
+void GltfModel::UpdateNodeMatrices(std::shared_ptr<GltfNode>& TreeNode, const glm::mat4& ParentNodeMatrix)
+{
+    if (TreeNode == nullptr)
+    {
+        return;
+    }
+
+    TreeNode->CalculateNodeMatrix(ParentNodeMatrix);
+    UpdateJointMatricesAndQuats(TreeNode);
+
+    glm::mat4 TreeNodeMatrix;
+    TreeNode->GetNodeMatrix(TreeNodeMatrix);
+
+    std::vector<std::shared_ptr<GltfNode>> ChildrenNodes;
+    TreeNode->GetChildren(ChildrenNodes);
+    for (auto& ChildNode : ChildrenNodes)
+    {
+        UpdateNodeMatrices(ChildNode, TreeNodeMatrix);
+    }
+
+}
+
+void GltfModel::UpdateJointMatricesAndQuats(std::shared_ptr<GltfNode>& TreeNode)
+{
+    if (TreeNode == nullptr || mInverseBindMatrices.empty() || mNodeToJoint.empty() || mJointMatrices.empty())
+    {
+        return;
+    }
+
+    glm::mat4 TreeNodeMatrix;
+    TreeNode->GetNodeMatrix(TreeNodeMatrix);
+
     /* multiply the node matrix and the inverse bind matrix to create the final transformation matrix
     for the positional change of every vertex of a node appearing in the joints array */
-    glm::mat4 NodeMatrix;
-    TreeNode->GetNodeMatrix(NodeMatrix);
-    mJointMatrices.at(mNodeToJoint.at(NodeIndex)) = NodeMatrix * mInverseBindMatrices.at(mNodeToJoint.at(NodeIndex));
+    const int NodeIndex = TreeNode->GetNodeIndex();
+    mJointMatrices.at(mNodeToJoint.at(NodeIndex)) = TreeNodeMatrix * mInverseBindMatrices.at(mNodeToJoint.at(NodeIndex));
 
     /* extract components from node matrix */
     glm::quat Orientation;
@@ -571,5 +692,24 @@ void GltfModel::GetNodeData(std::shared_ptr<GltfNode> TreeNode, const glm::mat4 
     else
     {
         Logger::Log(1, "%s error: could not decompose matrix for node %i\n", __FUNCTION__, NodeIndex);
+    }
+}
+
+void GltfModel::GetAnimations()
+{
+    if (mModel == nullptr || mModel->animations.empty())
+    {
+        return;
+    }
+
+    for (const auto &Anim : mModel->animations)
+    {
+        Logger::Log(1, "%s: loading animation '%s' with %i channels\n", __FUNCTION__, Anim.name.c_str(), Anim.channels.size());
+        std::shared_ptr<GltfAnimationClip> Clip = std::make_shared<GltfAnimationClip>(Anim.name);
+        for (const auto& Channel : Anim.channels)
+        {
+            Clip->AddChannel(mModel, Anim, Channel);
+        }
+        mAnimClips.push_back(Clip);
     }
 }

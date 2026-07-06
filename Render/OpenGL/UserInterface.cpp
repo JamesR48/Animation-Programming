@@ -227,6 +227,42 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
         }
     }
 
+    if (ImGui::CollapsingHeader("glTF Animation")) {
+        ImGui::Text("Clip No");
+        ImGui::SameLine();
+        ImGui::SliderInt("##Clip", &InOutRenderData.rdAnimClip, 0, InOutRenderData.rdAnimClipSize - 1);
+
+        ImGui::Text("Clip Name: %s", InOutRenderData.rdClipName.c_str());
+
+        ImGui::Checkbox("Play Animation", &InOutRenderData.rdPlayAnimation);
+
+        if (!InOutRenderData.rdPlayAnimation)
+        {
+            ImGui::BeginDisabled();
+        }
+        ImGui::Text("Speed  ");
+        ImGui::SameLine();
+        ImGui::SliderFloat("##ClipSpeed", &InOutRenderData.rdAnimSpeed, 0.0f, 2.0f);
+        if (!InOutRenderData.rdPlayAnimation)
+        {
+            ImGui::EndDisabled();
+        }
+
+        if (InOutRenderData.rdPlayAnimation)
+        {
+            ImGui::BeginDisabled();
+        }
+        ImGui::Text("Timepos");
+        ImGui::SameLine();
+        ImGui::SliderFloat("##ClipPos", &InOutRenderData.rdAnimTimePosition, 0.0f, InOutRenderData.rdAnimEndTime);
+
+        if (InOutRenderData.rdPlayAnimation)
+        {
+            ImGui::EndDisabled();
+        }
+    }
+
+
     ImGui::End();
 }
 

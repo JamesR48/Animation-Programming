@@ -128,6 +128,10 @@ bool OGLRenderer::Init(unsigned int Width, unsigned int Height)
     mGltfDualQuatSSBuffer->Init(ModelJointDualQuatBufferSize);
     Logger::Log(1, "%s: glTF joint dual quaternions shader storage buffer (size %i bytes) successfully created\n", __FUNCTION__, ModelJointDualQuatBufferSize);
 
+    /* valid, but emtpy */
+    mSkeletonMesh = std::make_shared<OGLMesh>();
+    Logger::Log(1, "%s: skeleton mesh storage initialized\n", __FUNCTION__);
+
     mUserInterface->Init(mRenderData);
     mFrameTimer->Start();
     return true;
@@ -186,6 +190,24 @@ void OGLRenderer::Draw()
     static_cast<float>(mRenderData.rdWidth) / static_cast<float>(mRenderData.rdHeight), 0.1f, 100.f);
 
     mViewMatrix = mCamera->GetViewMatrix(mRenderData);
+
+    /* animate */
+    mGltfModel->GetClipName(mRenderData.rdAnimClip, mRenderData.rdClipName);
+    if (mRenderData.rdPlayAnimation)
+    {
+        mGltfModel->PlayAnimation(mRenderData.rdAnimClip, mRenderData.rdAnimSpeed);
+    }
+    else
+    {
+        mRenderData.rdAnimEndTime = mGltfModel->GetAnimationEndTime(mRenderData.rdAnimClip);
+        mGltfModel->SetAnimationFrame(mRenderData.rdAnimClip, mRenderData.rdAnimTimePosition);
+    }
+
+    /* get gltTF skeleton */
+    if (mRenderData.rdDrawSkeleton)
+    {
+        mSkeletonMesh = mGltfModel->GetSkeleton();
+    }
 
     mRenderData.rdMatrixGenerateTime = mMatrixGenerateTimer->Stop();
 
@@ -344,8 +366,13 @@ void OGLRenderer::Draw()
     /* upload vertex data */
     mUploadToVBOTimer->Start();
 
+    if (mRenderData.rdDrawSkeleton)
+    {
+        mVertexBuffer->UploadData(*mSkeletonMesh);
+    }
+
     /* upload lines and boxes */
-    mVertexBuffer->UploadData(*mAllMeshes);
+    //mVertexBuffer->UploadData(*mAllMeshes);
 
     /* upload required data only when switching GPU and CPU */
     static bool LastGPURenderState = mRenderData.rdGPUVertexSkinning;
@@ -369,6 +396,15 @@ void OGLRenderer::Draw()
 
     mRenderData.rdUploadToVBOTime = mUploadToVBOTimer->Stop();
 
+    if (mRenderData.rdDrawSkeleton)
+    {
+        mSkeletonLineIndexCount = mSkeletonMesh->Vertices.size();
+    }
+    else
+    {
+        mSkeletonLineIndexCount = 0;
+    }
+
     mLineIndexCount = mStartPosArrowMesh.Vertices.size() + mEndPosArrowMesh.Vertices.size() +
     mQuatPosArrowMesh.Vertices.size() + mCoordArrowsMesh.Vertices.size() +
     mSplineMesh.Vertices.size();
@@ -376,8 +412,8 @@ void OGLRenderer::Draw()
     /* draw the lines first */
     if (mLineIndexCount > 0)
     {
-        mLineShader->Use();
-        mVertexBuffer->BindAndDraw(GL_LINES, 0, mLineIndexCount);
+        //mLineShader->Use();
+        //mVertexBuffer->BindAndDraw(GL_LINES, 0, mLineIndexCount);
     }
 
     /* draw the glTF model */
@@ -399,6 +435,15 @@ void OGLRenderer::Draw()
             mGltfShader->Use();
         }
         mGltfModel->Draw();
+    }
+
+    /* draw the skeleton last, disable depth test to overlay */
+    if (mSkeletonLineIndexCount > 0 && mRenderData.rdDrawSkeleton)
+    {
+        glDisable(GL_DEPTH_TEST);
+        mLineShader->Use();
+        mVertexBuffer->BindAndDraw(GL_LINES, 0, mSkeletonLineIndexCount);
+        glEnable(GL_DEPTH_TEST);
     }
 
     mFramebuffer->Unbind();
@@ -440,6 +485,7 @@ void OGLRenderer::Cleanup()
     mGltfDualQuatSSBuffer.reset();
     mUserInterface->Cleanup();
     mUserInterface.reset();
+    mSkeletonMesh.reset();
 }
 
 void OGLRenderer::HandleKeyEvents(int Key, int Scancode, int Action, int Mods)

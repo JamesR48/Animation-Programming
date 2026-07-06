@@ -1,6 +1,7 @@
 #ifndef CPPANIMPROGRAMMING_OGLRENDERDATA_H
 #define CPPANIMPROGRAMMING_OGLRENDERDATA_H
 
+#include <string>
 #include <vector>
 #include <glm/glm.hpp>
 
@@ -73,6 +74,14 @@ struct OGLRenderData
     bool rdDrawSkeleton = true;
     bool rdGPUVertexSkinning = true;
     bool rdDualQuatVertexSkinning = false;
+
+    bool rdPlayAnimation = true;
+    std::string rdClipName = "None";
+    int rdAnimClip = 0;
+    int rdAnimClipSize = 0;
+    float rdAnimSpeed = 1.0f;
+    float rdAnimTimePosition = 0.0f;
+    float rdAnimEndTime = 0.0f;
 
 };
 
