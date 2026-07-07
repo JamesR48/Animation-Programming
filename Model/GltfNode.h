@@ -40,10 +40,12 @@ private:
     std::string mNodeName;
     std::vector<std::shared_ptr<GltfNode>> mChildrenNodes{};
 
+    // storing the node's binding pose data
     glm::vec3 mScale = glm::vec3(1.0f);
     glm::vec3 mTranslation = glm::vec3(0.0f);
     glm::quat mRotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 
+    // storing the changes that occur during clips
     glm::vec3 mBlendScale = glm::vec3(1.0f);
     glm::vec3 mBlendTranslation = glm::vec3(0.0f);
     glm::quat mBlendRotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);

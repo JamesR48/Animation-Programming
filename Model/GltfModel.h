@@ -25,6 +25,7 @@ struct OGLMesh;
 class GltfModel
 {
 public:
+
     GltfModel();
     ~GltfModel();
 
@@ -40,12 +41,18 @@ public:
     int GetJointDualQuatsSize() const;
     void GetJointDualQuats(std::vector<glm::mat2x4>& OutJointDualQuats);
 
-    void PlayAnimation(const int AnimIndex, const float PlaybackSpeed, const float BlendFactor, const bool bPlayBackwards);
-    void BlendAnimationFrame(const int AnimIndex, float Time, float BlendFactor);
+    // Passing a DestAnimIndex > -1 will apply cross-blending between both animations instead of the binding pose
+    void PlayAnimation(const int SourceAnimIndex, const float BlendFactor, const int DestAnimIndex = -1, const float PlaybackSpeed = 1.0f, const bool bPlayBackwards = false);
+
+    void BlendAnimationFrame(const int SourceAnimIndex, const float Time, const float BlendFactor, const int DestAnimIndex = -1);
+
     float GetAnimationEndTime(const int AnimIndex) const;
     void GetClipName(const int AnimIndex, std::string& Name);
 
+    void ResetNodeData();
+
 private:
+
     void CreateVertexBuffers();
     void CreateIndexBuffer();
     int GetTriangleCount() const;
@@ -63,6 +70,7 @@ private:
     // sets the node values for translation, rotation, scale. Triggers the calculation of the LocalTRS and Node matrices
     void GetNodeData(std::shared_ptr<GltfNode>& TreeNode, const glm::mat4& ParentNodeMatrix);
 
+    void ResetNodeData(const std::shared_ptr<GltfNode>& TreeNode, const glm::mat4& ParentNodeMatrix);
     void UpdateNodeMatrices(std::shared_ptr<GltfNode>& TreeNode, const glm::mat4& ParentNodeMatrix);
     void UpdateJointMatricesAndQuats(std::shared_ptr<GltfNode>& TreeNode);
 

@@ -193,14 +193,26 @@ void OGLRenderer::Draw()
 
     /* animate */
     mGltfModel->GetClipName(mRenderData.rdAnimClip, mRenderData.rdClipName);
+    mGltfModel->GetClipName(mRenderData.rdCrossBlendDestAnimClip, mRenderData.rdCrossBlendDestClipName);
+
+    static bool bShouldCrossBlend = mRenderData.rdCrossBlending;
+    if (bShouldCrossBlend != mRenderData.rdCrossBlending)
+    {
+        bShouldCrossBlend = mRenderData.rdCrossBlending;
+        mGltfModel->ResetNodeData();
+    }
+
+    const int DestAnimIndex = mRenderData.rdCrossBlending ? mRenderData.rdCrossBlendDestAnimClip : -1;
+    const float BlendFactor = mRenderData.rdCrossBlending ? mRenderData.rdAnimCrossBlendFactor : mRenderData.rdAnimBlendFactor;
+
     if (mRenderData.rdPlayAnimation)
     {
-        mGltfModel->PlayAnimation(mRenderData.rdAnimClip, mRenderData.rdAnimSpeed, mRenderData.rdAnimBlendFactor, mRenderData.rdPlayAnimationBackward);
+        mGltfModel->PlayAnimation(mRenderData.rdAnimClip, BlendFactor, DestAnimIndex, mRenderData.rdAnimSpeed, mRenderData.rdPlayAnimationBackward);
     }
     else
     {
         mRenderData.rdAnimEndTime = mGltfModel->GetAnimationEndTime(mRenderData.rdAnimClip);
-        mGltfModel->BlendAnimationFrame(mRenderData.rdAnimClip, mRenderData.rdAnimTimePosition, mRenderData.rdAnimBlendFactor);
+        mGltfModel->BlendAnimationFrame(mRenderData.rdAnimClip, mRenderData.rdAnimTimePosition, BlendFactor, DestAnimIndex);
     }
 
     /* get gltTF skeleton */

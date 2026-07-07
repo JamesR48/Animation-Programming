@@ -302,33 +302,56 @@ void GltfModel::GetJointDualQuats(std::vector<glm::mat2x4> &OutJointDualQuats)
     OutJointDualQuats = mJointDualQuats;
 }
 
-void GltfModel::PlayAnimation(const int AnimIndex, const float PlaybackSpeed, const float BlendFactor, const bool bPlayBackwards)
+void GltfModel::PlayAnimation(const int SourceAnimIndex, const float BlendFactor, const int DestAnimIndex, const float PlaybackSpeed, const bool bPlayBackwards)
 {
-    if (mAnimClips.empty() || (AnimIndex < 0) || (AnimIndex >= mAnimClips.size()))
+    if (mAnimClips.empty() || (SourceAnimIndex < 0) || (SourceAnimIndex >= mAnimClips.size()))
     {
         Logger::Log(1, "%s: no valid animations to play\n", __FUNCTION__);
         return;
     }
 
-    const float ClipEndTime = mAnimClips.at(AnimIndex)->GetClipEndTime();
+    const float ClipEndTime = mAnimClips.at(SourceAnimIndex)->GetClipEndTime();
     double CurrentTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
     double AnimTime = std::fmod((CurrentTime / 1000.0) * PlaybackSpeed, ClipEndTime);
     if (bPlayBackwards)
     {
         AnimTime = ClipEndTime - AnimTime;
     }
-    BlendAnimationFrame(AnimIndex, AnimTime, BlendFactor);
+    BlendAnimationFrame(SourceAnimIndex, AnimTime, BlendFactor, DestAnimIndex);
 }
 
-void GltfModel::BlendAnimationFrame(const int AnimIndex, float Time, float BlendFactor)
+void GltfModel::BlendAnimationFrame(const int SourceAnimIndex, const float Time, const float BlendFactor, const int DestAnimIndex)
 {
-    if (mAnimClips.empty() || (AnimIndex < 0) || (AnimIndex >= mAnimClips.size()))
+    if (mAnimClips.empty() || (SourceAnimIndex < 0) || (SourceAnimIndex >= mAnimClips.size()))
     {
         Logger::Log(1, "%s: no valid animations\n", __FUNCTION__);
         return;
     }
 
-    mAnimClips.at(AnimIndex)->BlendAnimationFrame(mNodeList, Time, BlendFactor);
+    if (DestAnimIndex > -1)
+    {
+        const float SourceAnimDuration = mAnimClips.at(SourceAnimIndex)->GetClipEndTime();
+        const float DestAnimDuration = mAnimClips.at(DestAnimIndex)->GetClipEndTime();
+
+        /* TODO: This kinda sync-blending method works good for (some) locomotion anims...but not so well
+            when transitioning from locomotion to unrelated states (sitting, picking up...)...maybe tracking
+            two separate times (one for source, other for dest) and swapping them in this cases could work...
+         */
+
+        /* equalizing the clip lengths so the shorter animation clip won't end suddenly,
+         resulting in a possible gap in the model movement */
+        const float ScaledTime = Time * (DestAnimDuration / SourceAnimDuration);
+
+        // setting the nodes baseline pose entirely based on the source anim at the current time
+        mAnimClips.at(SourceAnimIndex)->SetAnimationFrame(mNodeList, Time);
+        // blending between the destination anim and the established pose from the source anim
+        mAnimClips.at(DestAnimIndex)->BlendAnimationFrame(mNodeList, ScaledTime, BlendFactor);
+    }
+    else
+    {
+        mAnimClips.at(SourceAnimIndex)->BlendAnimationFrame(mNodeList, Time, BlendFactor);
+    }
+
     UpdateNodeMatrices(mRootNode, glm::mat4(1.0f));
 }
 
@@ -352,6 +375,12 @@ void GltfModel::GetClipName(const int AnimIndex, std::string &Name)
     }
 
     Name = mAnimClips.at(AnimIndex)->GetClipName();
+}
+
+void GltfModel::ResetNodeData()
+{
+    GetNodeData(mRootNode, glm::mat4(1.0f));
+    ResetNodeData(mRootNode, glm::mat4(1.0f));
 }
 
 void GltfModel::CreateVertexBuffers()
@@ -637,6 +666,24 @@ void GltfModel::GetNodeData(std::shared_ptr<GltfNode>& TreeNode, const glm::mat4
     TreeNode->CalculateNodeMatrix(ParentNodeMatrix);
 
     UpdateJointMatricesAndQuats(TreeNode);
+}
+
+void GltfModel::ResetNodeData(const std::shared_ptr<GltfNode>& TreeNode, const glm::mat4& ParentNodeMatrix)
+{
+    if (TreeNode == nullptr)
+    {
+        return;
+    }
+
+    glm::mat4 TreeNodeMatrix;
+    TreeNode->GetNodeMatrix(TreeNodeMatrix);
+    std::vector<std::shared_ptr<GltfNode>> ChildrenNodes;
+    TreeNode->GetChildren(ChildrenNodes);
+    for (std::shared_ptr<GltfNode>& ChildNode : ChildrenNodes)
+    {
+        GetNodeData(ChildNode, TreeNodeMatrix);
+        ResetNodeData(ChildNode, TreeNodeMatrix);
+    }
 }
 
 void GltfModel::UpdateNodeMatrices(std::shared_ptr<GltfNode>& TreeNode, const glm::mat4& ParentNodeMatrix)
