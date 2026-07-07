@@ -82,7 +82,8 @@ struct OGLRenderData
     float rdAnimSpeed = 1.0f;
     float rdAnimTimePosition = 0.0f;
     float rdAnimEndTime = 0.0f;
-
+    bool rdPlayAnimationBackward = false;
+    float rdAnimBlendFactor = 1.0f;
 };
 
 #endif //CPPANIMPROGRAMMING_OGLRENDERDATA_H

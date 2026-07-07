@@ -17,7 +17,7 @@ void GltfAnimationClip::AddChannel(const std::unique_ptr<tinygltf::Model>& Model
 
 }
 
-void GltfAnimationClip::SetAnimationFrame(std::vector<std::shared_ptr<GltfNode>> &Nodes, float Time)
+void GltfAnimationClip::SetAnimationFrame(std::vector<std::shared_ptr<GltfNode>> &Nodes, const float Time)
 {
     if (Nodes.empty())
     {
@@ -28,18 +28,56 @@ void GltfAnimationClip::SetAnimationFrame(std::vector<std::shared_ptr<GltfNode>>
     // setting the new translation, rotation, scale of the node
     for (const std::shared_ptr<GltfAnimationChannel>& Channel : mAnimationChannels)
     {
-        Time = std::clamp(Time, 0.0f, Channel->GetMaxTime());
+        const float ClampedTime = std::clamp(Time, 0.0f, Channel->GetMaxTime());
         const int TargetNode = Channel->GetTargetNode();
         switch(Channel->GetTargetPath())
         {
             case ETargetPath::ROTATION:
-                Nodes.at(TargetNode)->SetRotation(Channel->GetRotation(Time));
+                Nodes.at(TargetNode)->SetRotation(Channel->GetRotation(ClampedTime));
                 break;
             case ETargetPath::TRANSLATION:
-                Nodes.at(TargetNode)->SetTranslation(Channel->GetTranslation(Time));
+                Nodes.at(TargetNode)->SetTranslation(Channel->GetTranslation(ClampedTime));
                 break;
             case ETargetPath::SCALE:
-                Nodes.at(TargetNode)->SetScale(Channel->GetScale(Time));
+                Nodes.at(TargetNode)->SetScale(Channel->GetScale(ClampedTime));
+                break;
+        }
+    }
+
+    // TODO: optimize this! (maybe a dirty flag)
+    /* updating all nodes in a single run */
+    for (std::shared_ptr<GltfNode>& Node : Nodes)
+    {
+        if (Node)
+        {
+            Node->CalculateLocalTRSMatrix();
+        }
+    }
+}
+
+void GltfAnimationClip::BlendAnimationFrame(std::vector<std::shared_ptr<GltfNode>>& Nodes, const float Time, const float BlendFactor)
+{
+    if (Nodes.empty())
+    {
+        Logger::Log(1, "%s: no Nodes to update!\n", __FUNCTION__);
+        return;
+    }
+
+    // setting the new translation, rotation, scale of the node
+    for (const std::shared_ptr<GltfAnimationChannel>& Channel : mAnimationChannels)
+    {
+        const float ClampedTime = std::clamp(Time, 0.0f, Channel->GetMaxTime());
+        const int TargetNode = Channel->GetTargetNode();
+        switch(Channel->GetTargetPath())
+        {
+            case ETargetPath::ROTATION:
+                Nodes.at(TargetNode)->BlendRotation(Channel->GetRotation(ClampedTime), BlendFactor);
+                break;
+            case ETargetPath::TRANSLATION:
+                Nodes.at(TargetNode)->BlendTranslation(Channel->GetTranslation(ClampedTime), BlendFactor);
+                break;
+            case ETargetPath::SCALE:
+                Nodes.at(TargetNode)->BlendScale(Channel->GetScale(ClampedTime), BlendFactor);
                 break;
         }
     }

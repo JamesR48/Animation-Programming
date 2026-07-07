@@ -40,8 +40,8 @@ public:
     int GetJointDualQuatsSize() const;
     void GetJointDualQuats(std::vector<glm::mat2x4>& OutJointDualQuats);
 
-    void PlayAnimation(const int AnimIndex, const float PlaybackSpeed);
-    void SetAnimationFrame(const int AnimIndex, float Time);
+    void PlayAnimation(const int AnimIndex, const float PlaybackSpeed, const float BlendFactor, const bool bPlayBackwards);
+    void BlendAnimationFrame(const int AnimIndex, float Time, float BlendFactor);
     float GetAnimationEndTime(const int AnimIndex) const;
     void GetClipName(const int AnimIndex, std::string& Name);
 

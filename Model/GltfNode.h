@@ -23,6 +23,10 @@ public:
     void SetTranslation(const glm::vec3& Translation);
     void SetRotation(const glm::quat& Rotation);
 
+    void BlendScale(const glm::vec3& Scale, float BlendFactor);
+    void BlendTranslation(const glm::vec3& Translation, float BlendFactor);
+    void BlendRotation(const glm::quat& Rotation, float BlendFactor);
+
     void CalculateLocalTRSMatrix();
     void CalculateNodeMatrix(const glm::mat4& ParentNodeMatrix);
     void GetNodeMatrix(glm::mat4& OutNodeMatrix);
@@ -39,6 +43,10 @@ private:
     glm::vec3 mScale = glm::vec3(1.0f);
     glm::vec3 mTranslation = glm::vec3(0.0f);
     glm::quat mRotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+
+    glm::vec3 mBlendScale = glm::vec3(1.0f);
+    glm::vec3 mBlendTranslation = glm::vec3(0.0f);
+    glm::quat mBlendRotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 
     // TRS: Translation * Rotation * Scale
     glm::mat4 mLocalTRSMatrix = glm::mat4(1.0f);

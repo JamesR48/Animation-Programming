@@ -46,6 +46,9 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
     }
     mFramesPerSecond = (mAveragingAlpha * mFramesPerSecond) + (1.0f - mAveragingAlpha) * NewFps;
 
+    /* clamp manual input on all sliders to min/max */
+    ImGuiSliderFlags Flags = ImGuiSliderFlags_ClampOnInput;
+
     ImGui::Text("FPS:");
     ImGui::SameLine();
     ImGui::Text(std::to_string(mFramesPerSecond).c_str());
@@ -119,7 +122,7 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
         ImGui::Text("%s", std::to_string(InOutRenderData.rdViewElevation).c_str());
         ImGui::Text("Field of View");
         ImGui::SameLine();
-        ImGui::SliderFloat("##FOV", &InOutRenderData.rdFieldOfView, 40, 150);
+        ImGui::SliderFloat("##FOV", &InOutRenderData.rdFieldOfView, 40, 150, "%.3f", Flags);
     }
 
     if (ImGui::CollapsingHeader("SLERP + Spline"))
@@ -131,7 +134,7 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
 
         ImGui::Text("Interpolate");
         ImGui::SameLine();
-        ImGui::SliderFloat("##Interp", &InOutRenderData.rdInterpValue, 0.0f, 1.0f);
+        ImGui::SliderFloat("##Interp", &InOutRenderData.rdInterpValue, 0.0f, 1.0f, "%.3f", Flags);
 
         if (ImGui::CollapsingHeader("SLERP"))
         {
@@ -142,19 +145,19 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
             ImGui::Text("X Rotation ");
             ImGui::PopStyleColor();
             ImGui::SameLine();
-            ImGui::SliderInt2("##ROTX", InOutRenderData.rdRotXAngle.data(), 0, 360);
+            ImGui::SliderInt2("##ROTX", InOutRenderData.rdRotXAngle.data(), 0, 360, "%d", Flags);
 
             ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
             ImGui::Text("Y Rotation ");
             ImGui::PopStyleColor();
             ImGui::SameLine();
-            ImGui::SliderInt2("##ROTY", InOutRenderData.rdRotYAngle.data(), 0, 360);
+            ImGui::SliderInt2("##ROTY", InOutRenderData.rdRotYAngle.data(), 0, 360, "%d", Flags);
 
             ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 0, 255, 255));
             ImGui::Text("Z Rotation ");
             ImGui::PopStyleColor();
             ImGui::SameLine();
-            ImGui::SliderInt2("##ROTZ", InOutRenderData.rdRotZAngle.data(), 0, 360);
+            ImGui::SliderInt2("##ROTZ", InOutRenderData.rdRotZAngle.data(), 0, 360, "%d", Flags);
         }
 
         if (ImGui::CollapsingHeader("Spline"))
@@ -163,25 +166,25 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
             ImGui::Text("Start Vec  ");
             ImGui::PopStyleColor();
             ImGui::SameLine();
-            ImGui::SliderFloat3("##STARTVEC", glm::value_ptr(InOutRenderData.rdSplineStartVertex), -10.0f, 10.0f);
+            ImGui::SliderFloat3("##STARTVEC", glm::value_ptr(InOutRenderData.rdSplineStartVertex), -10.0f, 10.0f, "%.3f", Flags);
 
             ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
             ImGui::Text("Start Tang ");
             ImGui::PopStyleColor();
             ImGui::SameLine();
-            ImGui::SliderFloat3("##STARTTANG", glm::value_ptr(InOutRenderData.rdSplineStartTangent), -10.0f, 10.0f);
+            ImGui::SliderFloat3("##STARTTANG", glm::value_ptr(InOutRenderData.rdSplineStartTangent), -10.0f, 10.0f, "%.3f", Flags);
 
             ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
             ImGui::Text("End Vec    ");
             ImGui::PopStyleColor();
             ImGui::SameLine();
-            ImGui::SliderFloat3("##ENDVEC", glm::value_ptr(InOutRenderData.rdSplineEndVertex), -10.0f, 10.0f);
+            ImGui::SliderFloat3("##ENDVEC", glm::value_ptr(InOutRenderData.rdSplineEndVertex), -10.0f, 10.0f, "%.3f", Flags);
 
             ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
             ImGui::Text("End Tang   ");
             ImGui::PopStyleColor();
             ImGui::SameLine();
-            ImGui::SliderFloat3("##ENDTANG", glm::value_ptr(InOutRenderData.rdSplineEndTangent), -10.0f, 10.0f);
+            ImGui::SliderFloat3("##ENDTANG", glm::value_ptr(InOutRenderData.rdSplineEndTangent), -10.0f, 10.0f, "%.3f", Flags);
         }
     }
 
@@ -189,15 +192,15 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
     {
         ImGui::Text("LightPosition X");
         ImGui::SameLine();
-        ImGui::SliderFloat("##LightPosX", &InOutRenderData.rdLightPostion.x, -360.0f, 360.0f);
+        ImGui::SliderFloat("##LightPosX", &InOutRenderData.rdLightPostion.x, -360.0f, 360.0f, "%.3f", Flags);
 
         ImGui::Text("LightPosition Y");
         ImGui::SameLine();
-        ImGui::SliderFloat("##LightPosY", &InOutRenderData.rdLightPostion.y, -360.0f, 360.0f);
+        ImGui::SliderFloat("##LightPosY", &InOutRenderData.rdLightPostion.y, -360.0f, 360.0f, "%.3f", Flags);
 
         ImGui::Text("LightPosition Z");
         ImGui::SameLine();
-        ImGui::SliderFloat("##LightPosZ", &InOutRenderData.rdLightPostion.z, -360.0f, 360.0f);
+        ImGui::SliderFloat("##LightPosZ", &InOutRenderData.rdLightPostion.z, -360.0f, 360.0f, "%.3f", Flags);
     }
 
     if (ImGui::CollapsingHeader("glTF Model"))
@@ -230,11 +233,22 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
     if (ImGui::CollapsingHeader("glTF Animation")) {
         ImGui::Text("Clip No");
         ImGui::SameLine();
-        ImGui::SliderInt("##Clip", &InOutRenderData.rdAnimClip, 0, InOutRenderData.rdAnimClipSize - 1);
+        ImGui::SliderInt("##Clip", &InOutRenderData.rdAnimClip, 0, InOutRenderData.rdAnimClipSize - 1, "%d", Flags);
 
         ImGui::Text("Clip Name: %s", InOutRenderData.rdClipName.c_str());
 
         ImGui::Checkbox("Play Animation", &InOutRenderData.rdPlayAnimation);
+
+        ImGui::Checkbox("Animation Direction:", &InOutRenderData.rdPlayAnimationBackward);
+        ImGui::SameLine();
+        if (!InOutRenderData.rdPlayAnimationBackward)
+        {
+            ImGui::Text("Forward");
+        }
+        else
+        {
+            ImGui::Text("Backward");
+        }
 
         if (!InOutRenderData.rdPlayAnimation)
         {
@@ -242,7 +256,7 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
         }
         ImGui::Text("Speed  ");
         ImGui::SameLine();
-        ImGui::SliderFloat("##ClipSpeed", &InOutRenderData.rdAnimSpeed, 0.0f, 2.0f);
+        ImGui::SliderFloat("##ClipSpeed", &InOutRenderData.rdAnimSpeed, 0.0f, 2.0f, "%.3f", Flags);
         if (!InOutRenderData.rdPlayAnimation)
         {
             ImGui::EndDisabled();
@@ -254,11 +268,18 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
         }
         ImGui::Text("Timepos");
         ImGui::SameLine();
-        ImGui::SliderFloat("##ClipPos", &InOutRenderData.rdAnimTimePosition, 0.0f, InOutRenderData.rdAnimEndTime);
+        ImGui::SliderFloat("##ClipPos", &InOutRenderData.rdAnimTimePosition, 0.0f, InOutRenderData.rdAnimEndTime, "%.3f", Flags);
 
         if (InOutRenderData.rdPlayAnimation)
         {
             ImGui::EndDisabled();
+        }
+
+        if (ImGui::CollapsingHeader("glTF Animation Blending"))
+        {
+            ImGui::Text("Blend Factor");
+            ImGui::SameLine();
+            ImGui::SliderFloat("##BlendFactor", &InOutRenderData.rdAnimBlendFactor, 0.0f, 1.0f, "%.3f", Flags);
         }
     }
 

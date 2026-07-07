@@ -195,12 +195,12 @@ void OGLRenderer::Draw()
     mGltfModel->GetClipName(mRenderData.rdAnimClip, mRenderData.rdClipName);
     if (mRenderData.rdPlayAnimation)
     {
-        mGltfModel->PlayAnimation(mRenderData.rdAnimClip, mRenderData.rdAnimSpeed);
+        mGltfModel->PlayAnimation(mRenderData.rdAnimClip, mRenderData.rdAnimSpeed, mRenderData.rdAnimBlendFactor, mRenderData.rdPlayAnimationBackward);
     }
     else
     {
         mRenderData.rdAnimEndTime = mGltfModel->GetAnimationEndTime(mRenderData.rdAnimClip);
-        mGltfModel->SetAnimationFrame(mRenderData.rdAnimClip, mRenderData.rdAnimTimePosition);
+        mGltfModel->BlendAnimationFrame(mRenderData.rdAnimClip, mRenderData.rdAnimTimePosition, mRenderData.rdAnimBlendFactor);
     }
 
     /* get gltTF skeleton */

@@ -302,7 +302,7 @@ void GltfModel::GetJointDualQuats(std::vector<glm::mat2x4> &OutJointDualQuats)
     OutJointDualQuats = mJointDualQuats;
 }
 
-void GltfModel::PlayAnimation(const int AnimIndex, const float PlaybackSpeed)
+void GltfModel::PlayAnimation(const int AnimIndex, const float PlaybackSpeed, const float BlendFactor, const bool bPlayBackwards)
 {
     if (mAnimClips.empty() || (AnimIndex < 0) || (AnimIndex >= mAnimClips.size()))
     {
@@ -310,12 +310,17 @@ void GltfModel::PlayAnimation(const int AnimIndex, const float PlaybackSpeed)
         return;
     }
 
+    const float ClipEndTime = mAnimClips.at(AnimIndex)->GetClipEndTime();
     double CurrentTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-    double AnimTime = std::fmod((CurrentTime / 1000.0) * PlaybackSpeed, mAnimClips.at(AnimIndex)->GetClipEndTime());
-    SetAnimationFrame(AnimIndex, AnimTime);
+    double AnimTime = std::fmod((CurrentTime / 1000.0) * PlaybackSpeed, ClipEndTime);
+    if (bPlayBackwards)
+    {
+        AnimTime = ClipEndTime - AnimTime;
+    }
+    BlendAnimationFrame(AnimIndex, AnimTime, BlendFactor);
 }
 
-void GltfModel::SetAnimationFrame(const int AnimIndex, float Time)
+void GltfModel::BlendAnimationFrame(const int AnimIndex, float Time, float BlendFactor)
 {
     if (mAnimClips.empty() || (AnimIndex < 0) || (AnimIndex >= mAnimClips.size()))
     {
@@ -323,7 +328,7 @@ void GltfModel::SetAnimationFrame(const int AnimIndex, float Time)
         return;
     }
 
-    mAnimClips.at(AnimIndex)->SetAnimationFrame(mNodeList, Time);
+    mAnimClips.at(AnimIndex)->BlendAnimationFrame(mNodeList, Time, BlendFactor);
     UpdateNodeMatrices(mRootNode, glm::mat4(1.0f));
 }
 

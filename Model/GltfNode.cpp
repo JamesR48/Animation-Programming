@@ -1,4 +1,7 @@
 #include "GltfNode.h"
+
+#include <algorithm>
+
 #include "../Tools/Logger.h"
 
 GltfNode::GltfNode()
@@ -42,23 +45,47 @@ void GltfNode::SetNodeName(const std::string& Name)
 void GltfNode::SetScale(const glm::vec3& Scale)
 {
     mScale = Scale;
+    mBlendScale = Scale;
 }
 
 void GltfNode::SetTranslation(const glm::vec3& Translation)
 {
     mTranslation = Translation;
+    mBlendTranslation = Translation;
 }
 
 void GltfNode::SetRotation(const glm::quat& Rotation)
 {
     mRotation = Rotation;
+    mBlendRotation = Rotation;
+}
+
+void GltfNode::BlendScale(const glm::vec3 &Scale, float BlendFactor)
+{
+    // Linear interp
+    float Factor = std::clamp(BlendFactor, 0.0f, 1.0f);
+    mBlendScale = Scale * Factor + mScale * (1.0f - Factor);
+}
+
+void GltfNode::BlendTranslation(const glm::vec3 &Translation, float BlendFactor)
+{
+    // Linear interp
+    float Factor = std::clamp(BlendFactor, 0.0f, 1.0f);
+    mBlendTranslation = Translation * Factor + mTranslation * (1.0f - Factor);
+}
+
+void GltfNode::BlendRotation(const glm::quat &Rotation, float BlendFactor)
+{
+    // Slerp
+    float Factor = std::clamp(BlendFactor, 0.0f, 1.0f);
+    mBlendRotation = glm::slerp(mRotation, Rotation, Factor);
 }
 
 void GltfNode::CalculateLocalTRSMatrix()
 {
-    glm::mat4 sMatrix = glm::scale(glm::mat4(1.0f), mScale);
-    glm::mat4 rMatrix = glm::mat4_cast(mRotation);
-    glm::mat4 tMatrix = glm::translate(glm::mat4(1.0f), mTranslation);
+    glm::mat4 sMatrix = glm::scale(glm::mat4(1.0f), mBlendScale);
+    glm::mat4 rMatrix = glm::mat4_cast(mBlendRotation);
+    glm::mat4 tMatrix = glm::translate(glm::mat4(1.0f), mBlendTranslation);
     mLocalTRSMatrix = tMatrix * rMatrix * sMatrix;
 }
 
