@@ -95,6 +95,24 @@ bool GltfModel::LoadModel(OGLRenderData &RenderData, std::string ModelFilename, 
     // initializing with all nodes valid
     mAdditiveAnimationMask.set();
 
+    for (const std::shared_ptr<GltfAnimationClip> &Clip : mAnimClips)
+    {
+        RenderData.rdClipNames.push_back(Clip->GetClipName());
+    }
+
+    for (const std::shared_ptr<GltfNode> &Node : mNodeList)
+    {
+        if (Node != nullptr)
+        {
+            std::string NodeName;
+            Node->GetNodeName(NodeName);
+            RenderData.rdSkelSplitNodeNames.push_back(NodeName);
+        } else
+        {
+            RenderData.rdSkelSplitNodeNames.push_back("(invalid)");
+        }
+    }
+
     return true;
 }
 
@@ -304,7 +322,7 @@ void GltfModel::GetJointDualQuats(std::vector<glm::mat2x4> &OutJointDualQuats)
     OutJointDualQuats = mJointDualQuats;
 }
 
-void GltfModel::PlayAnimation(const int SourceAnimIndex, const float BlendFactor, const int DestAnimIndex, const float PlaybackSpeed, const bool bPlayBackwards)
+void GltfModel::PlayAnimation(const int SourceAnimIndex, const float BlendFactor, const int DestAnimIndex, const float PlaybackSpeed, const EPlaybackDirection PlaybackDirection)
 {
     if (mAnimClips.empty() || (SourceAnimIndex < 0) || (SourceAnimIndex >= mAnimClips.size()))
     {
@@ -315,7 +333,7 @@ void GltfModel::PlayAnimation(const int SourceAnimIndex, const float BlendFactor
     const float ClipEndTime = mAnimClips.at(SourceAnimIndex)->GetClipEndTime();
     double CurrentTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
     double AnimTime = std::fmod((CurrentTime / 1000.0) * PlaybackSpeed, ClipEndTime);
-    if (bPlayBackwards)
+    if (PlaybackDirection == EPlaybackDirection::Backward)
     {
         AnimTime = ClipEndTime - AnimTime;
     }

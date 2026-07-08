@@ -43,7 +43,7 @@ public:
     void GetJointDualQuats(std::vector<glm::mat2x4>& OutJointDualQuats);
 
     // Passing a DestAnimIndex > -1 will apply cross-blending between both animations instead of the binding pose
-    void PlayAnimation(const int SourceAnimIndex, const float BlendFactor, const int DestAnimIndex = -1, const float PlaybackSpeed = 1.0f, const bool bPlayBackwards = false);
+    void PlayAnimation(const int SourceAnimIndex, const float BlendFactor, const int DestAnimIndex = -1, const float PlaybackSpeed = 1.0f, const EPlaybackDirection PlaybackDirection = EPlaybackDirection::Forward);
 
     void BlendAnimationFrame(const int SourceAnimIndex, const float Time, const float BlendFactor, const int DestAnimIndex = -1);
 

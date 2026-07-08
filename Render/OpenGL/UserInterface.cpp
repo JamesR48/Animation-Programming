@@ -20,6 +20,15 @@ void UserInterface::Init(const OGLRenderData& RenderData)
     ImGui_ImplOpenGL3_Init(glslVersion);
     ImGui::StyleColorsDark();
     Logger::Log(1, "%s: user interface initialized\n", __FUNCTION__);
+
+    /* init plot vectors */
+    mFPSValues.resize(mNumFPSValues);
+    mFrameTimeValues.resize(mNumFrameTimeValues);
+    mModelUploadValues.resize(mNumModelUploadValues);
+    mMatrixGenerationValues.resize(mNumMatrixGenerationValues);
+    mMatrixUploadValues.resize(mNumMatrixUploadValues);
+    mUiGenValues.resize(mNumUiGenValues);
+    mUiDrawValues.resize(mNumUiDrawValues);
 }
 
 void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
@@ -49,9 +58,75 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
     /* clamp manual input on all sliders to min/max */
     ImGuiSliderFlags Flags = ImGuiSliderFlags_ClampOnInput;
 
+    //  hold a timestamp of the last update of the plot data
+    static double UpdateTime = 0.0;
+
+    /// initializing for the first run
+    if (UpdateTime < 0.000001)
+    {
+        UpdateTime = ImGui::GetTime();
+    }
+
+    // initializing ring buffer offsets
+    static int FPSOffset = 0;
+    static int FrameTimeOffset = 0;
+    static int ModelUploadOffset = 0;
+    static int MatrixGenOffset = 0;
+    static int MatrixUploadOffset = 0;
+    static int UIGenOffset = 0;
+    static int UIDrawOffset = 0;
+
+    while (UpdateTime < ImGui::GetTime())
+    {
+        /* ring buffer */
+        // using % to wrap the buffer back to 0 once the configured number of values is exceed
+        mFPSValues.at(FPSOffset) = mFramesPerSecond;
+        FPSOffset = ++FPSOffset % mNumFPSValues;
+
+        mFrameTimeValues.at(FrameTimeOffset) = InOutRenderData.rdFrameTime;
+        FrameTimeOffset = ++FrameTimeOffset % mNumFrameTimeValues;
+
+        mModelUploadValues.at(ModelUploadOffset) = InOutRenderData.rdUploadToVBOTime;
+        ModelUploadOffset = ++ModelUploadOffset % mNumModelUploadValues;
+
+        mMatrixGenerationValues.at(MatrixGenOffset) = InOutRenderData.rdMatrixGenerateTime;
+        MatrixGenOffset = ++MatrixGenOffset % mNumMatrixGenerationValues;
+
+        mMatrixUploadValues.at(MatrixUploadOffset) = InOutRenderData.rdUploadToUBOTime;
+        MatrixUploadOffset = ++MatrixUploadOffset % mNumMatrixUploadValues;
+
+        mUiGenValues.at(UIGenOffset) = InOutRenderData.rdUIGenerateTime;
+        UIGenOffset = ++UIGenOffset % mNumUiGenValues;
+
+        mUiDrawValues.at(UIDrawOffset) = InOutRenderData.rdUIDrawTime;
+        UIDrawOffset = ++UIDrawOffset % mNumUiDrawValues;
+
+        // advancing plot data update ~33ms into the future
+        UpdateTime += 1.0 / 30.0;
+    }
+
+    ImGui::BeginGroup();
     ImGui::Text("FPS:");
     ImGui::SameLine();
-    ImGui::Text(std::to_string(mFramesPerSecond).c_str());
+    ImGui::Text("%s", std::to_string(mFramesPerSecond).c_str());
+    ImGui::EndGroup();
+
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::BeginTooltip();
+        float AverageFPS = 0.0f;
+        for (const auto value : mFPSValues)
+        {
+            AverageFPS += value;
+        }
+        AverageFPS /= static_cast<float>(mNumFPSValues);
+        std::string fpsOverlay = "now:     " + std::to_string(mFramesPerSecond) + "\n30s avg: " + std::to_string(AverageFPS);
+        ImGui::Text("FPS");
+        ImGui::SameLine();
+        ImGui::PlotLines("##FrameTimes", mFPSValues.data(), mFPSValues.size(), FPSOffset,
+            fpsOverlay.c_str(), 0.0f, FLT_MAX, ImVec2(0, 80));
+        ImGui::EndTooltip();
+    }
 
     if (ImGui::CollapsingHeader("Info"))
     {
@@ -72,41 +147,164 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
 
     if (ImGui::CollapsingHeader("Timers"))
     {
+        ImGui::BeginGroup();
         ImGui::Text("Frame Time:");
         ImGui::SameLine();
         ImGui::Text("%s", std::to_string(InOutRenderData.rdFrameTime).c_str());
         ImGui::SameLine();
         ImGui::Text("ms");
+        ImGui::EndGroup();
 
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::BeginTooltip();
+            float averageFrameTime = 0.0f;
+            for (const auto value: mFrameTimeValues)
+            {
+                averageFrameTime += value;
+            }
+            averageFrameTime /= static_cast<float>(mNumMatrixGenerationValues);
+            std::string frameTimeOverlay = "now:     " + std::to_string(InOutRenderData.rdFrameTime)
+                                           + " ms\n30s avg: " + std::to_string(averageFrameTime) + " ms";
+            ImGui::Text("Frame Time       ");
+            ImGui::SameLine();
+            ImGui::PlotLines("##FrameTime", mFrameTimeValues.data(), mFrameTimeValues.size(), FrameTimeOffset,
+                             frameTimeOverlay.c_str(), 0.0f, FLT_MAX, ImVec2(0, 80));
+            ImGui::EndTooltip();
+        }
+
+        ImGui::BeginGroup();
         ImGui::Text("Model Upload Time:");
         ImGui::SameLine();
         ImGui::Text("%s", std::to_string(InOutRenderData.rdUploadToVBOTime).c_str());
         ImGui::SameLine();
         ImGui::Text("ms");
+        ImGui::EndGroup();
 
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::BeginTooltip();
+            float averageModelUpload = 0.0f;
+            for (const auto value: mModelUploadValues)
+            {
+                averageModelUpload += value;
+            }
+            averageModelUpload /= static_cast<float>(mNumModelUploadValues);
+            std::string modelUploadOverlay = "now:     " + std::to_string(InOutRenderData.rdUploadToVBOTime)
+                                             + " ms\n30s avg: " + std::to_string(averageModelUpload) + " ms";
+            ImGui::Text("VBO Upload");
+            ImGui::SameLine();
+            ImGui::PlotLines("##ModelUploadTimes", mModelUploadValues.data(), mModelUploadValues.size(),
+                             ModelUploadOffset,
+                             modelUploadOverlay.c_str(), 0.0f, FLT_MAX, ImVec2(0, 80));
+            ImGui::EndTooltip();
+        }
+
+        ImGui::BeginGroup();
         ImGui::Text("Matrix Generation Time:");
         ImGui::SameLine();
         ImGui::Text("%s", std::to_string(InOutRenderData.rdMatrixGenerateTime).c_str());
         ImGui::SameLine();
         ImGui::Text("ms");
+        ImGui::EndGroup();
 
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::BeginTooltip();
+            float averageMatGen = 0.0f;
+            for (const auto value: mMatrixGenerationValues)
+            {
+                averageMatGen += value;
+            }
+            averageMatGen /= static_cast<float>(mNumMatrixGenerationValues);
+            std::string matrixGenOverlay = "now:     " + std::to_string(InOutRenderData.rdMatrixGenerateTime)
+                                           + " ms\n30s avg: " + std::to_string(averageMatGen) + " ms";
+            ImGui::Text("Matrix Generation");
+            ImGui::SameLine();
+            ImGui::PlotLines("##MatrixGenTimes", mMatrixGenerationValues.data(), mMatrixGenerationValues.size(),
+                             MatrixGenOffset,
+                             matrixGenOverlay.c_str(), 0.0f, FLT_MAX, ImVec2(0, 80));
+            ImGui::EndTooltip();
+        }
+
+        ImGui::BeginGroup();
         ImGui::Text("Matrix Upload Time:");
         ImGui::SameLine();
         ImGui::Text("%s", std::to_string(InOutRenderData.rdUploadToUBOTime).c_str());
         ImGui::SameLine();
         ImGui::Text("ms");
+        ImGui::EndGroup();
 
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::BeginTooltip();
+            float averageMatrixUpload = 0.0f;
+            for (const auto value: mMatrixUploadValues)
+            {
+                averageMatrixUpload += value;
+            }
+            averageMatrixUpload /= static_cast<float>(mNumMatrixUploadValues);
+            std::string matrixUploadOverlay = "now:     " + std::to_string(InOutRenderData.rdUploadToVBOTime)
+                                              + " ms\n30s avg: " + std::to_string(averageMatrixUpload) + " ms";
+            ImGui::Text("UBO Upload");
+            ImGui::SameLine();
+            ImGui::PlotLines("##MatrixUploadTimes", mMatrixUploadValues.data(), mMatrixUploadValues.size(),
+                             MatrixUploadOffset,
+                             matrixUploadOverlay.c_str(), 0.0f, FLT_MAX, ImVec2(0, 80));
+            ImGui::EndTooltip();
+        }
+
+        ImGui::BeginGroup();
         ImGui::Text("UI Generation Time:");
         ImGui::SameLine();
         ImGui::Text("%s", std::to_string(InOutRenderData.rdUIGenerateTime).c_str());
         ImGui::SameLine();
         ImGui::Text("ms");
+        ImGui::EndGroup();
 
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::BeginTooltip();
+            float averageUiGen = 0.0f;
+            for (const auto value: mUiGenValues)
+            {
+                averageUiGen += value;
+            }
+            averageUiGen /= static_cast<float>(mNumUiGenValues);
+            std::string uiGenOverlay = "now:     " + std::to_string(InOutRenderData.rdUIGenerateTime)
+                                       + " ms\n30s avg: " + std::to_string(averageUiGen) + " ms";
+            ImGui::Text("UI Generation");
+            ImGui::SameLine();
+            ImGui::PlotLines("##UIGenTimes", mUiGenValues.data(), mUiGenValues.size(), UIGenOffset,
+                             uiGenOverlay.c_str(), 0.0f, FLT_MAX, ImVec2(0, 80));
+            ImGui::EndTooltip();
+        }
+
+        ImGui::BeginGroup();
         ImGui::Text("UI Draw Time:");
         ImGui::SameLine();
         ImGui::Text("%s", std::to_string(InOutRenderData.rdUIDrawTime).c_str());
         ImGui::SameLine();
         ImGui::Text("ms");
+        ImGui::EndGroup();
+
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::BeginTooltip();
+            float averageUiDraw = 0.0f;
+            for (const auto value: mUiDrawValues)
+            {
+                averageUiDraw += value;
+            }
+            averageUiDraw /= static_cast<float>(mNumUiDrawValues);
+            std::string uiDrawOverlay = "now:     " + std::to_string(InOutRenderData.rdUIDrawTime)
+                                        + " ms\n30s avg: " + std::to_string(averageUiDraw) + " ms";
+            ImGui::Text("UI Draw");
+            ImGui::SameLine();
+            ImGui::PlotLines("##UIDrawTimes", mUiDrawValues.data(), mUiDrawValues.size(), UIDrawOffset,
+                             uiDrawOverlay.c_str(), 0.0f, FLT_MAX, ImVec2(0, 80));
+            ImGui::EndTooltip();
+        }
     }
 
     if (ImGui::CollapsingHeader("Camera"))
@@ -218,126 +416,162 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
             ImGui::Text("Code");
         }
         ImGui::Indent();
-        ImGui::Checkbox("GPU Vertex Skinning Method:", &InOutRenderData.rdDualQuatVertexSkinning);
+
+        ImGui::Text("Vertex Skinning:");
         ImGui::SameLine();
-        if (InOutRenderData.rdDualQuatVertexSkinning)
+        if (ImGui::RadioButton("Linear",InOutRenderData.rdSkinningMode == ESkinningMode::Linear))
         {
-            ImGui::Text("Dual Quaternion");
+            InOutRenderData.rdSkinningMode = ESkinningMode::Linear;
         }
-        else
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Dual Quaternion",InOutRenderData.rdSkinningMode == ESkinningMode::DualQuat))
         {
-            ImGui::Text("Linear");
+            InOutRenderData.rdSkinningMode = ESkinningMode::DualQuat;
         }
     }
 
-    if (ImGui::CollapsingHeader("glTF Animation")) {
-        ImGui::Text("Clip No");
-        ImGui::SameLine();
-        ImGui::SliderInt("##Clip", &InOutRenderData.rdAnimClip, 0, InOutRenderData.rdAnimClipSize - 1, "%d", Flags);
-
-        ImGui::Text("Clip Name: %s", InOutRenderData.rdClipName.c_str());
-
+    if (ImGui::CollapsingHeader("glTF Animation"))
+    {
         ImGui::Checkbox("Play Animation", &InOutRenderData.rdPlayAnimation);
 
-        ImGui::Checkbox("Animation Direction:", &InOutRenderData.rdPlayAnimationBackward);
-        ImGui::SameLine();
-        if (!InOutRenderData.rdPlayAnimationBackward)
+        if (!InOutRenderData.rdPlayAnimation)
         {
-            ImGui::Text("Forward");
+            ImGui::BeginDisabled();
+        }
+
+        ImGui::Text("Animation Direction:");
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Forward", InOutRenderData.rdAnimationPlayDirection == EPlaybackDirection::Forward))
+        {
+            InOutRenderData.rdAnimationPlayDirection = EPlaybackDirection::Forward;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Backward",InOutRenderData.rdAnimationPlayDirection == EPlaybackDirection::Backward))
+        {
+            InOutRenderData.rdAnimationPlayDirection = EPlaybackDirection::Backward;
+        }
+
+        if (!InOutRenderData.rdPlayAnimation)
+        {
+            ImGui::EndDisabled();
+        }
+
+        ImGui::Text("Clip ");
+        ImGui::SameLine();
+        const std::string CurrentClip = InOutRenderData.rdClipNames.at(InOutRenderData.rdAnimClip);
+        if (ImGui::BeginCombo("##ClipCombo",CurrentClip.c_str()))
+        {
+            const int ClipCount = InOutRenderData.rdClipNames.size();
+            for (int i = 0; i < ClipCount; ++i)
+            {
+                const bool bIsSelected = (InOutRenderData.rdAnimClip == i);
+                const std::string SelectedClip = InOutRenderData.rdClipNames.at(i);
+                if (ImGui::Selectable(SelectedClip.c_str(), bIsSelected))
+                {
+                    InOutRenderData.rdAnimClip = i;
+                }
+
+                if (bIsSelected)
+                {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+
+        if (InOutRenderData.rdPlayAnimation)
+        {
+            ImGui::Text("Speed  ");
+            ImGui::SameLine();
+            ImGui::SliderFloat("##ClipSpeed", &InOutRenderData.rdAnimSpeed, 0.0f, 2.0f, "%.3f", Flags);
         }
         else
         {
-            ImGui::Text("Backward");
-        }
-
-        if (!InOutRenderData.rdPlayAnimation)
-        {
-            ImGui::BeginDisabled();
-        }
-        ImGui::Text("Speed  ");
-        ImGui::SameLine();
-        ImGui::SliderFloat("##ClipSpeed", &InOutRenderData.rdAnimSpeed, 0.0f, 2.0f, "%.3f", Flags);
-        if (!InOutRenderData.rdPlayAnimation)
-        {
-            ImGui::EndDisabled();
-        }
-
-        if (InOutRenderData.rdPlayAnimation)
-        {
-            ImGui::BeginDisabled();
-        }
-        ImGui::Text("Timepos");
-        ImGui::SameLine();
-        ImGui::SliderFloat("##ClipPos", &InOutRenderData.rdAnimTimePosition, 0.0f, InOutRenderData.rdAnimEndTime, "%.3f", Flags);
-
-        if (InOutRenderData.rdPlayAnimation)
-        {
-            ImGui::EndDisabled();
+            ImGui::Text("Timepos");
+            ImGui::SameLine();
+            ImGui::SliderFloat("##ClipPos", &InOutRenderData.rdAnimTimePosition, 0.0f, InOutRenderData.rdAnimEndTime, "%.3f", Flags);
         }
     }
 
     if (ImGui::CollapsingHeader("glTF Animation Blending"))
     {
-        ImGui::Checkbox("Blending Type:", &InOutRenderData.rdCrossBlending);
+        ImGui::Text("Blending Type:");
         ImGui::SameLine();
-        if (InOutRenderData.rdCrossBlending)
+        if (ImGui::RadioButton("Crossfading",InOutRenderData.rdBlendingMode == EBlendMode::CrossFade))
         {
-            ImGui::Text("Cross");
+            InOutRenderData.rdBlendingMode = EBlendMode::CrossFade;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Additive",InOutRenderData.rdBlendingMode == EBlendMode::Additive))
+        {
+            InOutRenderData.rdBlendingMode = EBlendMode::Additive;
+        }
+
+        const bool bIsCrossBlending = InOutRenderData.rdBlendingMode != EBlendMode::FadeInOut;
+        if (bIsCrossBlending)
+        {
+            ImGui::Text("Dest Clip   ");
+            ImGui::SameLine();
+
+            const std::string CurrentDestClip = InOutRenderData.rdClipNames.at(InOutRenderData.rdCrossBlendDestAnimClip);
+            if (ImGui::BeginCombo("##DestClipCombo",CurrentDestClip.c_str()))
+            {
+                const int ClipCount = InOutRenderData.rdClipNames.size();
+                for (int i = 0; i < ClipCount; ++i)
+                {
+                    const bool bIsSelected = (InOutRenderData.rdCrossBlendDestAnimClip == i);
+                    const std::string SelectedClip = InOutRenderData.rdClipNames.at(i);
+                    if (ImGui::Selectable(SelectedClip.c_str(), bIsSelected))
+                    {
+                        InOutRenderData.rdCrossBlendDestAnimClip = i;
+                    }
+
+                    if (bIsSelected)
+                    {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+
+            ImGui::Text("Cross Blend ");
+            ImGui::SameLine();
+            ImGui::SliderFloat("##CrossBlendFactor", &InOutRenderData.rdAnimCrossBlendFactor, 0.0f, 1.0f, "%.3f", Flags);
         }
         else
         {
-            ImGui::Text("Single");
+            ImGui::Text("Blend Factor");
+            ImGui::SameLine();
+            ImGui::SliderFloat("##BlendFactor", &InOutRenderData.rdAnimBlendFactor, 0.0f, 1.0f, "%.3f", Flags);
         }
 
-        if (InOutRenderData.rdCrossBlending)
+        if (InOutRenderData.rdBlendingMode == EBlendMode::Additive)
         {
-            ImGui::BeginDisabled();
-        }
+            ImGui::Text("Split Node  ");
+            ImGui::SameLine();
 
-        ImGui::Text("Blend Factor");
-        ImGui::SameLine();
-        ImGui::SliderFloat("##BlendFactor", &InOutRenderData.rdAnimBlendFactor, 0.0f, 1.0f, "%.3f", Flags);
+            const std::string CurrentSplitNode = InOutRenderData.rdSkelSplitNodeNames.at(InOutRenderData.rdSkelSplitNode);
+            if (ImGui::BeginCombo("##SplitNodeCombo",CurrentSplitNode.c_str()))
+            {
+                const int SplitNodeCount = InOutRenderData.rdSkelSplitNodeNames.size();
+                for (int i = 0; i < SplitNodeCount; ++i)
+                {
+                    if (InOutRenderData.rdSkelSplitNodeNames.at(i).compare("(invalid)") != 0)
+                    {
+                        const bool bIsSelected = (InOutRenderData.rdSkelSplitNode == i);
+                        if (ImGui::Selectable(InOutRenderData.rdSkelSplitNodeNames.at(i).c_str(), bIsSelected))
+                        {
+                            InOutRenderData.rdSkelSplitNode = i;
+                        }
 
-        if (InOutRenderData.rdCrossBlending)
-        {
-            ImGui::EndDisabled();
-        }
-
-        if (!InOutRenderData.rdCrossBlending)
-        {
-            ImGui::BeginDisabled();
-        }
-
-        ImGui::Text("Dest Clip   ");
-        ImGui::SameLine();
-        ImGui::SliderInt("##DestClip", &InOutRenderData.rdCrossBlendDestAnimClip, 0, InOutRenderData.rdAnimClipSize - 1, "%d", Flags);
-
-        ImGui::Text("Dest Clip Name: %s", InOutRenderData.rdCrossBlendDestClipName.c_str());
-
-        ImGui::Text("Cross Blend ");
-        ImGui::SameLine();
-        ImGui::SliderFloat("##CrossBlendFactor", &InOutRenderData.rdAnimCrossBlendFactor, 0.0f, 1.0f, "%.3f", Flags);
-
-        ImGui::Checkbox("Additive Blending", &InOutRenderData.rdAdditiveBlending);
-
-        if (!InOutRenderData.rdAdditiveBlending)
-        {
-            ImGui::BeginDisabled();
-        }
-
-        ImGui::Text("Split Node  ");
-        ImGui::SameLine();
-        ImGui::SliderInt("##SplitNode", &InOutRenderData.rdSkelSplitNode, 0,InOutRenderData.rdModelNodeCount - 1, "%d", Flags);
-        ImGui::Text("Split Node Name: %s", InOutRenderData.rdSkelSplitNodeName.c_str());
-
-        if (!InOutRenderData.rdAdditiveBlending)
-        {
-            ImGui::EndDisabled();
-        }
-
-        if (!InOutRenderData.rdCrossBlending)
-        {
-            ImGui::EndDisabled();
+                        if (bIsSelected)
+                        {
+                            ImGui::SetItemDefaultFocus();
+                        }
+                    }
+                }
+                ImGui::EndCombo();
+            }
         }
     }
 

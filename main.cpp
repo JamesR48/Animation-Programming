@@ -6,7 +6,7 @@ int main(int argc, char* argv[])
 {
     std::unique_ptr<Window> WindowPtr = std::make_unique<Window>();
 
-    if (!WindowPtr->Init(640, 480, "CPP Animation Programming"))
+    if (!WindowPtr->Init(1280, 720, "CPP Animation Programming"))
     {
         Logger::Log(1, "%s Error: Window init error\n", __FUNCTION__);
         return -1;

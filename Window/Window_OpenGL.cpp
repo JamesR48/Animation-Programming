@@ -51,12 +51,6 @@ bool Window::Init(unsigned int Width, unsigned int Height, std::string Title)
     {
         const auto Renderer = static_cast<OGLRenderer*>(glfwGetWindowUserPointer(Win));
         Renderer->SetSize(Width, Height);
-
-        // Prevent division by zero if minimized
-        if (Width == 0 || Height == 0) return;
-
-        const auto ThisWindow = static_cast<Window*>(glfwGetWindowUserPointer(Win));
-        ThisWindow->HandleWindowResizeEvents(Width, Height);
     });
 
     //Input Events

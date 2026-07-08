@@ -197,29 +197,13 @@ void OGLRenderer::Draw()
     mViewMatrix = mCamera->GetViewMatrix(mRenderData);
 
     /* animate */
-    mGltfModel->GetClipName(mRenderData.rdAnimClip, mRenderData.rdClipName);
-    mGltfModel->GetClipName(mRenderData.rdCrossBlendDestAnimClip, mRenderData.rdCrossBlendDestClipName);
+    const bool bIsDualQuatSkinning = mRenderData.rdSkinningMode == ESkinningMode::DualQuat;
 
-    static bool bShouldCrossBlend = mRenderData.rdCrossBlending;
-    if (bShouldCrossBlend != mRenderData.rdCrossBlending)
+    static EBlendMode LastBlendMode = mRenderData.rdBlendingMode;
+    if (LastBlendMode != mRenderData.rdBlendingMode)
     {
-        bShouldCrossBlend = mRenderData.rdCrossBlending;
-
-        if (!mRenderData.rdCrossBlending)
-        {
-            mRenderData.rdAdditiveBlending = false;
-        }
-
-        mGltfModel->ResetNodeData();
-    }
-
-    static bool bShouldAdditiveBlend = mRenderData.rdAdditiveBlending;
-    if (bShouldAdditiveBlend != mRenderData.rdAdditiveBlending)
-    {
-        bShouldAdditiveBlend = mRenderData.rdAdditiveBlending;
-
-        /* reset split when additive blending is disabled */
-        if (!mRenderData.rdAdditiveBlending)
+        LastBlendMode = mRenderData.rdBlendingMode;
+        if (mRenderData.rdBlendingMode != EBlendMode::Additive)
         {
             mRenderData.rdSkelSplitNode = mRenderData.rdModelNodeCount - 1;
         }
@@ -230,17 +214,17 @@ void OGLRenderer::Draw()
     if (SkelSplitNodeIndex != mRenderData.rdSkelSplitNode)
     {
         mGltfModel->SetSkeletonSplitNode(mRenderData.rdSkelSplitNode);
-        mGltfModel->GetNodeName(mRenderData.rdSkelSplitNode, mRenderData.rdSkelSplitNodeName);
         SkelSplitNodeIndex = mRenderData.rdSkelSplitNode;
         mGltfModel->ResetNodeData();
     }
 
-    const int DestAnimIndex = mRenderData.rdCrossBlending ? mRenderData.rdCrossBlendDestAnimClip : -1;
-    const float BlendFactor = mRenderData.rdCrossBlending ? mRenderData.rdAnimCrossBlendFactor : mRenderData.rdAnimBlendFactor;
+    const bool bIsCrossBlending = mRenderData.rdBlendingMode != EBlendMode::FadeInOut;
+    const int DestAnimIndex = bIsCrossBlending ? mRenderData.rdCrossBlendDestAnimClip : -1;
+    const float BlendFactor = bIsCrossBlending ? mRenderData.rdAnimCrossBlendFactor : mRenderData.rdAnimBlendFactor;
 
     if (mRenderData.rdPlayAnimation)
     {
-        mGltfModel->PlayAnimation(mRenderData.rdAnimClip, BlendFactor, DestAnimIndex, mRenderData.rdAnimSpeed, mRenderData.rdPlayAnimationBackward);
+        mGltfModel->PlayAnimation(mRenderData.rdAnimClip, BlendFactor, DestAnimIndex, mRenderData.rdAnimSpeed, mRenderData.rdAnimationPlayDirection);
     }
     else
     {
@@ -264,7 +248,7 @@ void OGLRenderer::Draw()
 
     if (mRenderData.rdGPUVertexSkinning)
     {
-        if (mRenderData.rdDualQuatVertexSkinning)
+        if (bIsDualQuatSkinning)
         {
             std::vector<glm::mat2x4> JointDualQuatMatrices;
             mGltfModel->GetJointDualQuats(JointDualQuatMatrices);
@@ -436,7 +420,7 @@ void OGLRenderer::Draw()
     if (!mRenderData.rdGPUVertexSkinning)
     {
         /* glTF vertex skinning, overwrites position buffer, needs upload on every frame */
-        mGltfModel->ApplyCPUVertexSkinning(mRenderData.rdDualQuatVertexSkinning);
+        mGltfModel->ApplyCPUVertexSkinning(bIsDualQuatSkinning);
     }
 
     mRenderData.rdUploadToVBOTime = mUploadToVBOTimer->Stop();
@@ -466,7 +450,7 @@ void OGLRenderer::Draw()
     {
         if (mRenderData.rdGPUVertexSkinning)
         {
-            if (mRenderData.rdDualQuatVertexSkinning)
+            if (bIsDualQuatSkinning)
             {
                 mGltfGPUDualQuatShader->Use();
             }
