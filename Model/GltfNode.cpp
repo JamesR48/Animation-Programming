@@ -37,6 +37,11 @@ int GltfNode::GetNodeIndex() const
     return mNodeIndex;
 }
 
+void GltfNode::GetNodeName(std::string &OutNodeName)
+{
+    OutNodeName = mNodeName;
+}
+
 void GltfNode::SetNodeName(const std::string& Name)
 {
     mNodeName = Name;

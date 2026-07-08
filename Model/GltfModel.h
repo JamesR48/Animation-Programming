@@ -4,9 +4,11 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <bitset>
 #include <map>
 #include <glad/gl.h>
 #include <glm/fwd.hpp>
+#include "../Render/OpenGL/OGLRenderData.h"
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/dual_quaternion.hpp>
@@ -16,7 +18,6 @@ namespace tinygltf
     class Model;
 };
 
-class OGLRenderData;
 class Texture;
 class GltfNode;
 class GltfAnimationClip;
@@ -50,6 +51,8 @@ public:
     void GetClipName(const int AnimIndex, std::string& Name);
 
     void ResetNodeData();
+    void SetSkeletonSplitNode(const int NodeIndex);
+    void GetNodeName(const int NodeIndex, std::string& OutNodeName);
 
 private:
 
@@ -73,6 +76,7 @@ private:
     void ResetNodeData(const std::shared_ptr<GltfNode>& TreeNode, const glm::mat4& ParentNodeMatrix);
     void UpdateNodeMatrices(std::shared_ptr<GltfNode>& TreeNode, const glm::mat4& ParentNodeMatrix);
     void UpdateJointMatricesAndQuats(std::shared_ptr<GltfNode>& TreeNode);
+    void UpdateAdditiveMask(const std::shared_ptr<GltfNode>& TreeNode, const int SplitNodeIndex);
 
     void GetAnimations();
 
@@ -101,6 +105,13 @@ private:
 
     std::unique_ptr<tinygltf::Model> mModel = nullptr;
     std::unique_ptr<Texture> mTex = nullptr;
+
+    std::bitset<MAX_GLTF_NODES> mAdditiveAnimationMask{0};
+
+#if 0
+    std::vector<bool> mAdditiveAnimationMask{};
+    std::vector<bool> mInvertedAdditiveAnimationMask{};
+#endif
 
     GLuint mVAO = 0;
     std::vector<GLuint> mVertexVBO{};

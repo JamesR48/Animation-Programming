@@ -132,6 +132,11 @@ bool OGLRenderer::Init(unsigned int Width, unsigned int Height)
     mSkeletonMesh = std::make_shared<OGLMesh>();
     Logger::Log(1, "%s: skeleton mesh storage initialized\n", __FUNCTION__);
 
+    // setting the split node to the root (MUST check if other models has the root at exactly the highest node of the tree)
+    /* reset skeleton split */
+    mRenderData.rdSkelSplitNode = mRenderData.rdModelNodeCount - 1;
+
+
     mUserInterface->Init(mRenderData);
     mFrameTimer->Start();
     return true;
@@ -199,6 +204,34 @@ void OGLRenderer::Draw()
     if (bShouldCrossBlend != mRenderData.rdCrossBlending)
     {
         bShouldCrossBlend = mRenderData.rdCrossBlending;
+
+        if (!mRenderData.rdCrossBlending)
+        {
+            mRenderData.rdAdditiveBlending = false;
+        }
+
+        mGltfModel->ResetNodeData();
+    }
+
+    static bool bShouldAdditiveBlend = mRenderData.rdAdditiveBlending;
+    if (bShouldAdditiveBlend != mRenderData.rdAdditiveBlending)
+    {
+        bShouldAdditiveBlend = mRenderData.rdAdditiveBlending;
+
+        /* reset split when additive blending is disabled */
+        if (!mRenderData.rdAdditiveBlending)
+        {
+            mRenderData.rdSkelSplitNode = mRenderData.rdModelNodeCount - 1;
+        }
+        mGltfModel->ResetNodeData();
+    }
+
+    static int SkelSplitNodeIndex = mRenderData.rdSkelSplitNode;
+    if (SkelSplitNodeIndex != mRenderData.rdSkelSplitNode)
+    {
+        mGltfModel->SetSkeletonSplitNode(mRenderData.rdSkelSplitNode);
+        mGltfModel->GetNodeName(mRenderData.rdSkelSplitNode, mRenderData.rdSkelSplitNodeName);
+        SkelSplitNodeIndex = mRenderData.rdSkelSplitNode;
         mGltfModel->ResetNodeData();
     }
 

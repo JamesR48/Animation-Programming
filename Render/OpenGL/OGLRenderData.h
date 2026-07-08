@@ -5,6 +5,8 @@
 #include <vector>
 #include <glm/glm.hpp>
 
+constexpr size_t MAX_GLTF_NODES = 256;
+
 struct OGLVertex
 {
     glm::vec3 Position;
@@ -84,11 +86,16 @@ struct OGLRenderData
     float rdAnimEndTime = 0.0f;
     bool rdPlayAnimationBackward = false;
     float rdAnimBlendFactor = 1.0f;
+    int rdModelNodeCount = 0;
 
     bool rdCrossBlending = false;
     int rdCrossBlendDestAnimClip = 0;
     std::string rdCrossBlendDestClipName = "None";
     float rdAnimCrossBlendFactor = 0.0f;
+
+    bool rdAdditiveBlending = false;
+    int rdSkelSplitNode = 0;
+    std::string rdSkelSplitNodeName = "None";
 };
 
 #endif //CPPANIMPROGRAMMING_OGLRENDERDATA_H

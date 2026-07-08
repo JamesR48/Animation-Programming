@@ -3,6 +3,7 @@
 #include "GltfNode.h"
 #include "../Tools/Logger.h"
 
+#include <bitset>
 #include <tiny_gltf.h>
 
 
@@ -17,7 +18,7 @@ void GltfAnimationClip::AddChannel(const std::unique_ptr<tinygltf::Model>& Model
 
 }
 
-void GltfAnimationClip::SetAnimationFrame(std::vector<std::shared_ptr<GltfNode>> &Nodes, const float Time)
+void GltfAnimationClip::SetAnimationFrame(std::vector<std::shared_ptr<GltfNode>> &Nodes, std::bitset<MAX_GLTF_NODES> AdditiveMask, const float Time)
 {
     if (Nodes.empty())
     {
@@ -28,19 +29,25 @@ void GltfAnimationClip::SetAnimationFrame(std::vector<std::shared_ptr<GltfNode>>
     // setting the new translation, rotation, scale of the node
     for (const std::shared_ptr<GltfAnimationChannel>& Channel : mAnimationChannels)
     {
-        const float ClampedTime = std::clamp(Time, 0.0f, Channel->GetMaxTime());
         const int TargetNode = Channel->GetTargetNode();
-        switch(Channel->GetTargetPath())
+
+        /* do not change if masked out */
+        //     if (additiveMask.at(targetNode))
+        if (AdditiveMask.test(TargetNode))
         {
-            case ETargetPath::ROTATION:
-                Nodes.at(TargetNode)->SetRotation(Channel->GetRotation(ClampedTime));
-                break;
-            case ETargetPath::TRANSLATION:
-                Nodes.at(TargetNode)->SetTranslation(Channel->GetTranslation(ClampedTime));
-                break;
-            case ETargetPath::SCALE:
-                Nodes.at(TargetNode)->SetScale(Channel->GetScale(ClampedTime));
-                break;
+            const float ClampedTime = std::clamp(Time, 0.0f, Channel->GetMaxTime());
+            switch(Channel->GetTargetPath())
+            {
+                case ETargetPath::ROTATION:
+                    Nodes.at(TargetNode)->SetRotation(Channel->GetRotation(ClampedTime));
+                    break;
+                case ETargetPath::TRANSLATION:
+                    Nodes.at(TargetNode)->SetTranslation(Channel->GetTranslation(ClampedTime));
+                    break;
+                case ETargetPath::SCALE:
+                    Nodes.at(TargetNode)->SetScale(Channel->GetScale(ClampedTime));
+                    break;
+            }
         }
     }
 
@@ -55,7 +62,7 @@ void GltfAnimationClip::SetAnimationFrame(std::vector<std::shared_ptr<GltfNode>>
     }
 }
 
-void GltfAnimationClip::BlendAnimationFrame(std::vector<std::shared_ptr<GltfNode>>& Nodes, const float Time, const float BlendFactor)
+void GltfAnimationClip::BlendAnimationFrame(std::vector<std::shared_ptr<GltfNode>>& Nodes, std::bitset<MAX_GLTF_NODES> AdditiveMask, const float Time, const float BlendFactor)
 {
     if (Nodes.empty())
     {
@@ -66,19 +73,25 @@ void GltfAnimationClip::BlendAnimationFrame(std::vector<std::shared_ptr<GltfNode
     // setting the new translation, rotation, scale of the node
     for (const std::shared_ptr<GltfAnimationChannel>& Channel : mAnimationChannels)
     {
-        const float ClampedTime = std::clamp(Time, 0.0f, Channel->GetMaxTime());
         const int TargetNode = Channel->GetTargetNode();
-        switch(Channel->GetTargetPath())
+
+        /* do not change if masked out */
+        //     if (additiveMask.at(targetNode))
+        if (AdditiveMask.test(TargetNode))
         {
-            case ETargetPath::ROTATION:
-                Nodes.at(TargetNode)->BlendRotation(Channel->GetRotation(ClampedTime), BlendFactor);
-                break;
-            case ETargetPath::TRANSLATION:
-                Nodes.at(TargetNode)->BlendTranslation(Channel->GetTranslation(ClampedTime), BlendFactor);
-                break;
-            case ETargetPath::SCALE:
-                Nodes.at(TargetNode)->BlendScale(Channel->GetScale(ClampedTime), BlendFactor);
-                break;
+            const float ClampedTime = std::clamp(Time, 0.0f, Channel->GetMaxTime());
+            switch(Channel->GetTargetPath())
+            {
+                case ETargetPath::ROTATION:
+                    Nodes.at(TargetNode)->BlendRotation(Channel->GetRotation(ClampedTime), BlendFactor);
+                    break;
+                case ETargetPath::TRANSLATION:
+                    Nodes.at(TargetNode)->BlendTranslation(Channel->GetTranslation(ClampedTime), BlendFactor);
+                    break;
+                case ETargetPath::SCALE:
+                    Nodes.at(TargetNode)->BlendScale(Channel->GetScale(ClampedTime), BlendFactor);
+                    break;
+            }
         }
     }
 

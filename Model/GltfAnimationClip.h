@@ -1,9 +1,11 @@
 #ifndef CPPANIMPROGRAMMING_GLTFANIMATIONCLIP_H
 #define CPPANIMPROGRAMMING_GLTFANIMATIONCLIP_H
 
+#include <bitset>
 #include <memory>
 #include <string>
 #include <vector>
+#include "../Render/OpenGL/OGLRenderData.h"
 
 namespace tinygltf
 {
@@ -23,8 +25,8 @@ public:
     void AddChannel(const std::unique_ptr<tinygltf::Model>& Model, const tinygltf::Animation& Anim, const tinygltf::AnimationChannel& Channel);
 
     // updates the model to a specified point in time with the data of the current channel
-    void SetAnimationFrame(std::vector<std::shared_ptr<GltfNode>>& Nodes, const float Time);
-    void BlendAnimationFrame(std::vector<std::shared_ptr<GltfNode>>& Nodes, const float Time, const float BlendFactor);
+    void SetAnimationFrame(std::vector<std::shared_ptr<GltfNode>>& Nodes, std::bitset<MAX_GLTF_NODES> AdditiveMask, const float Time);
+    void BlendAnimationFrame(std::vector<std::shared_ptr<GltfNode>>& Nodes, std::bitset<MAX_GLTF_NODES> AdditiveMask, const float Time, const float BlendFactor);
     float GetClipEndTime();
     std::string GetClipName();
 

@@ -8,7 +8,24 @@ out vec4 FragColor;
 uniform sampler2D tex;
 
 vec3 LightPos = vec3(4.0, 3.0, 6.0);
-vec3 LightColor = vec3(0.5, 0.5, 0.5);
+vec3 LightColor = vec3(1.0, 1.0, 1.0);
+
+float ToSRGB(float X)
+{
+    if (X <= 0.0031308)
+    {
+        return 12.92 * X;
+    }
+    else
+    {
+        return 1.055 * pow(X, (1.0/2.4)) - 0.055;
+    }
+}
+
+vec3 sRGB(vec3 C)
+{
+    return vec3(ToSRGB(C.x), ToSRGB(C.y), ToSRGB(C.z));
+}
 
 void main()
 {
@@ -19,4 +36,5 @@ void main()
     “overshooting” the color to a value larger than 1.0 when adding the values from the ambient light
     and light angle */
     FragColor = texture(tex, TexCoord) * vec4((0.3 + 0.7 * LightAngle) * LightColor, 1.0);
+    //FragColor.rgb = sRGB(FragColor.rgb);
 }

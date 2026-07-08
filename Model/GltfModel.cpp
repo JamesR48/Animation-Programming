@@ -13,7 +13,6 @@
 #include "GltfAnimationClip.h"
 #include "GltfNode.h"
 #include "../Render/OpenGL/Texture.h"
-#include "../Render/OpenGL/OGLRenderData.h"
 #include "../Tools/Logger.h"
 
 #define TINYGLTF_NO_STB_IMAGE
@@ -75,12 +74,12 @@ bool GltfModel::LoadModel(OGLRenderData &RenderData, std::string ModelFilename, 
     GetInvBindMatrices();
 
     /* build model tree */
-    const int NodeCount = mModel->nodes.size();
+    RenderData.rdModelNodeCount = mModel->nodes.size();
     const int RootNodeIndex = mModel->scenes.at(0).nodes.at(0);
     mRootNode = GltfNode::CreateRoot(RootNodeIndex);
-    Logger::Log(1, "%s: model has %i nodes, root node is %i\n", __FUNCTION__, NodeCount, RootNodeIndex);
+    Logger::Log(1, "%s: model has %i nodes, root node is %i\n", __FUNCTION__, RenderData.rdModelNodeCount, RootNodeIndex);
 
-    mNodeList.resize(NodeCount);
+    mNodeList.resize(RenderData.rdModelNodeCount);
     mNodeList.at(RootNodeIndex) = mRootNode;
 
     GetNodeData(mRootNode, glm::mat4(1.0f));
@@ -92,6 +91,9 @@ bool GltfModel::LoadModel(OGLRenderData &RenderData, std::string ModelFilename, 
     /* extract animation data */
     GetAnimations();
     RenderData.rdAnimClipSize = mAnimClips.size();
+
+    // initializing with all nodes valid
+    mAdditiveAnimationMask.set();
 
     return true;
 }
@@ -343,13 +345,17 @@ void GltfModel::BlendAnimationFrame(const int SourceAnimIndex, const float Time,
         const float ScaledTime = Time * (DestAnimDuration / SourceAnimDuration);
 
         // setting the nodes baseline pose entirely based on the source anim at the current time
-        mAnimClips.at(SourceAnimIndex)->SetAnimationFrame(mNodeList, Time);
+        mAnimClips.at(SourceAnimIndex)->SetAnimationFrame(mNodeList, mAdditiveAnimationMask, Time);
         // blending between the destination anim and the established pose from the source anim
-        mAnimClips.at(DestAnimIndex)->BlendAnimationFrame(mNodeList, ScaledTime, BlendFactor);
+        mAnimClips.at(DestAnimIndex)->BlendAnimationFrame(mNodeList, mAdditiveAnimationMask, ScaledTime, BlendFactor);
+
+        const std::bitset<MAX_GLTF_NODES> InvertedAdditiveMask = ~mAdditiveAnimationMask;
+        mAnimClips.at(DestAnimIndex)->SetAnimationFrame(mNodeList, InvertedAdditiveMask, ScaledTime);
+        mAnimClips.at(SourceAnimIndex)->BlendAnimationFrame(mNodeList, InvertedAdditiveMask, Time, BlendFactor);
     }
     else
     {
-        mAnimClips.at(SourceAnimIndex)->BlendAnimationFrame(mNodeList, Time, BlendFactor);
+        mAnimClips.at(SourceAnimIndex)->BlendAnimationFrame(mNodeList, mAdditiveAnimationMask, Time, BlendFactor);
     }
 
     UpdateNodeMatrices(mRootNode, glm::mat4(1.0f));
@@ -381,6 +387,28 @@ void GltfModel::ResetNodeData()
 {
     GetNodeData(mRootNode, glm::mat4(1.0f));
     ResetNodeData(mRootNode, glm::mat4(1.0f));
+}
+
+void GltfModel::SetSkeletonSplitNode(const int NodeIndex)
+{
+    if (NodeIndex >= MAX_GLTF_NODES)
+    {
+        return;
+    }
+
+    mAdditiveAnimationMask.set();
+    UpdateAdditiveMask(mRootNode, NodeIndex);
+}
+
+void GltfModel::GetNodeName(const int NodeIndex, std::string &OutNodeName)
+{
+    if ((NodeIndex < 0) || (NodeIndex >= mNodeList.size()) || (mNodeList.at(NodeIndex) == nullptr))
+    {
+        OutNodeName = "INVALID";
+        return;
+    }
+
+    mNodeList.at(NodeIndex)->GetNodeName(OutNodeName);
 }
 
 void GltfModel::CreateVertexBuffers()
@@ -527,7 +555,6 @@ void GltfModel::GetSkeletonPerNode(std::shared_ptr<GltfNode> TreeNode)
 
         GetSkeletonPerNode(ChildNode);
     }
-
 }
 
 void GltfModel::GetJointData()
@@ -744,6 +771,32 @@ void GltfModel::UpdateJointMatricesAndQuats(std::shared_ptr<GltfNode>& TreeNode)
     else
     {
         Logger::Log(1, "%s error: could not decompose matrix for node %i\n", __FUNCTION__, NodeIndex);
+    }
+}
+
+void GltfModel::UpdateAdditiveMask(const std::shared_ptr<GltfNode> &TreeNode, const int SplitNodeIndex)
+{
+    if (TreeNode == nullptr)
+    {
+        return;
+    }
+
+    const int NodeIndex = TreeNode->GetNodeIndex();
+    if((NodeIndex >= MAX_GLTF_NODES) || (NodeIndex == SplitNodeIndex))
+    {
+        return;
+    }
+
+    /* if the current node is above the split node, it will no longer be part of the animation clip,
+     set the mask for the current node to false */
+    //   mAdditiveAnimationMask.at(treeNode->getNodeNum()) = false;
+    mAdditiveAnimationMask.set(NodeIndex, false);
+
+    std::vector<std::shared_ptr<GltfNode>> ChildrenNodes;
+    TreeNode->GetChildren(ChildrenNodes);
+    for (std::shared_ptr<GltfNode>& ChildNode : ChildrenNodes)
+    {
+        UpdateAdditiveMask(ChildNode, SplitNodeIndex);
     }
 }
 
