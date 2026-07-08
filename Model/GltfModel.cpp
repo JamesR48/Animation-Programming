@@ -339,11 +339,11 @@ void GltfModel::BlendAnimationFrame(const int SourceAnimIndex, const float Time,
             when transitioning from locomotion to unrelated states (sitting, picking up...)...maybe tracking
             two separate times (one for source, other for dest) and swapping them in this cases could work...
          */
-
         /* equalizing the clip lengths so the shorter animation clip won't end suddenly,
          resulting in a possible gap in the model movement */
         const float ScaledTime = Time * (DestAnimDuration / SourceAnimDuration);
 
+        // TODO: separate the binding pose data from the blending and adding a way to blend multiple animations
         // setting the nodes baseline pose entirely based on the source anim at the current time
         mAnimClips.at(SourceAnimIndex)->SetAnimationFrame(mNodeList, mAdditiveAnimationMask, Time);
         // blending between the destination anim and the established pose from the source anim
