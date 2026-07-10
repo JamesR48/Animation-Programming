@@ -36,6 +36,9 @@ private:
 
     std::vector<float> mUiDrawValues{};
     int mNumUiDrawValues = 90;
+
+    std::vector<float> mIKValues{};
+    int mNumIKValues = 90;
 };
 
 #endif //CPPANIMPROGRAMMING_USERINTERFACE_H

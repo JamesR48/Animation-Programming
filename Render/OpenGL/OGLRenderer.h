@@ -53,6 +53,7 @@ private:
     std::unique_ptr<Timer> mUploadToUBOTimer = nullptr;
     std::unique_ptr<Timer> mUIGenerateTimer = nullptr;
     std::unique_ptr<Timer> mUIDrawTimer = nullptr;
+    std::unique_ptr<Timer> mIKTimer = nullptr;
 
     // shaders
     std::unique_ptr<Shader> mLineShader = nullptr;
@@ -67,6 +68,9 @@ private:
     OGLMesh mStartPosArrowMesh{};
     OGLMesh mEndPosArrowMesh{};
     OGLMesh mQuatPosArrowMesh{};
+
+    std::unique_ptr<CoordArrowsModel> mIKTargetModel = nullptr;
+    OGLMesh mIKTargetMesh{};
 
     std::unique_ptr<OGLMesh> mAllMeshes = nullptr;
 

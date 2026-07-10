@@ -19,6 +19,7 @@ namespace tinygltf
 };
 
 class Texture;
+class IKSolver;
 class GltfNode;
 class GltfAnimationClip;
 struct OGLMesh;
@@ -54,6 +55,10 @@ public:
     void SetSkeletonSplitNode(const int NodeIndex);
     void GetNodeName(const int NodeIndex, std::string& OutNodeName);
 
+    void SetInverseKinematicsNodes(int EffectorNodeIndex, int IKChainRootNodeIndex);
+    void SetNumIKIterations(int Iterations);
+    void SolveIKByCCD(glm::vec3 Target);
+
 private:
 
     void CreateVertexBuffers();
@@ -71,10 +76,10 @@ private:
     void GetNodes(std::shared_ptr<GltfNode>& TreeNode);
 
     // sets the node values for translation, rotation, scale. Triggers the calculation of the LocalTRS and Node matrices
-    void GetNodeData(std::shared_ptr<GltfNode>& TreeNode, const glm::mat4& ParentNodeMatrix);
+    void GetNodeData(std::shared_ptr<GltfNode>& TreeNode);
 
-    void ResetNodeData(const std::shared_ptr<GltfNode>& TreeNode, const glm::mat4& ParentNodeMatrix);
-    void UpdateNodeMatrices(std::shared_ptr<GltfNode>& TreeNode, const glm::mat4& ParentNodeMatrix);
+    void ResetNodeData(const std::shared_ptr<GltfNode>& TreeNode);
+    void UpdateNodeMatrices(std::shared_ptr<GltfNode>& TreeNode);
     void UpdateJointMatricesAndQuats(std::shared_ptr<GltfNode>& TreeNode);
     void UpdateAdditiveMask(const std::shared_ptr<GltfNode>& TreeNode, const int SplitNodeIndex);
 
@@ -108,10 +113,7 @@ private:
 
     std::bitset<MAX_GLTF_NODES> mAdditiveAnimationMask{0};
 
-#if 0
-    std::vector<bool> mAdditiveAnimationMask{};
-    std::vector<bool> mInvertedAdditiveAnimationMask{};
-#endif
+    std::unique_ptr<IKSolver> mIKSolver = nullptr;
 
     GLuint mVAO = 0;
     std::vector<GLuint> mVertexVBO{};

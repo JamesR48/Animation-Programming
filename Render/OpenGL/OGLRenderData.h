@@ -26,6 +26,13 @@ enum class EBlendMode
     Additive
 };
 
+enum class EIKSolver
+{
+    None = 0,
+    CCD,
+    Fabrik
+};
+
 struct OGLVertex
 {
     glm::vec3 Position;
@@ -58,6 +65,7 @@ struct OGLRenderData
     float rdUploadToUBOTime = 0.0f;
     float rdUIGenerateTime = 0.0f;
     float rdUIDrawTime = 0.0f;
+    float rdIKTime = 0.0f;
 
     // clockwise rotation around an imaginary vertical line pointing upward from the center of coordinate system
     // a.k.a. Yaw
@@ -94,7 +102,7 @@ struct OGLRenderData
     ESkinningMode rdSkinningMode = ESkinningMode::Linear;
     EBlendMode rdBlendingMode = EBlendMode::FadeInOut;
     EPlaybackDirection rdAnimationPlayDirection = EPlaybackDirection::Forward;
-
+    EIKSolver rdIKSolver = EIKSolver::None;
 
     bool rdDrawGltfModel = true;
     bool rdDrawSkeleton = true;
@@ -114,7 +122,12 @@ struct OGLRenderData
     float rdAnimCrossBlendFactor = 0.0f;
 
     int rdSkelSplitNode = 0;
-    std::vector<std::string> rdSkelSplitNodeNames{};
+    std::vector<std::string> rdSkelNodeNames{};
+
+    int rdIkIterations = 10;
+    glm::vec3 rdIkTargetPos = glm::vec3(0.0f, 3.0f, 1.0f);
+    int rdIkEffectorNode = 0;
+    int rdIkRootNode = 0;
 };
 
 #endif //CPPANIMPROGRAMMING_OGLRENDERDATA_H

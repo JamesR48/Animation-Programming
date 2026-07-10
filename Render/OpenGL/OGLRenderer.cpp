@@ -7,7 +7,6 @@
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
 #include <glm/ext/matrix_clip_space.hpp>
-#include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <imgui_impl_glfw.h>
 #include <glm/gtx/spline.hpp>
@@ -68,7 +67,9 @@ bool OGLRenderer::Init(unsigned int Width, unsigned int Height)
     mUploadToVBOTimer = std::make_unique<Timer>();
     mUIGenerateTimer = std::make_unique<Timer>();
     mUIDrawTimer = std::make_unique<Timer>();
+    mIKTimer = std::make_unique<Timer>();
 
+    mIKTargetModel = std::make_unique<CoordArrowsModel>();
     mSplineModel = std::make_unique<SplineModel>();
     mArrowModel = std::make_unique<ArrowModel>();
     mCoordArrowsModel = std::make_unique<CoordArrowsModel>();
@@ -136,6 +137,12 @@ bool OGLRenderer::Init(unsigned int Width, unsigned int Height)
     /* reset skeleton split */
     mRenderData.rdSkelSplitNode = mRenderData.rdModelNodeCount - 1;
 
+    /* set values for inverse kinematics */
+    /* hard-code right arm here for startup */
+    mRenderData.rdIkEffectorNode = 19;
+    mRenderData.rdIkRootNode = 26;
+    mGltfModel->SetInverseKinematicsNodes(mRenderData.rdIkEffectorNode, mRenderData.rdIkRootNode);
+    mGltfModel->SetNumIKIterations(mRenderData.rdIkIterations);
 
     mUserInterface->Init(mRenderData);
     mFrameTimer->Start();
@@ -196,6 +203,36 @@ void OGLRenderer::Draw()
 
     mViewMatrix = mCamera->GetViewMatrix(mRenderData);
 
+    static EIKSolver LastIkSolver = mRenderData.rdIKSolver;
+    if (LastIkSolver != mRenderData.rdIKSolver)
+    {
+        mGltfModel->ResetNodeData();
+        LastIkSolver = mRenderData.rdIKSolver;
+        /* clear timer */
+        if (mRenderData.rdIKSolver == EIKSolver::None)
+        {
+            mRenderData.rdIKTime = 0.0f;
+        }
+    }
+
+    static int NumIKIterations = mRenderData.rdIkIterations;
+    if (NumIKIterations != mRenderData.rdIkIterations)
+    {
+        mGltfModel->SetNumIKIterations(mRenderData.rdIkIterations);
+        mGltfModel->ResetNodeData();
+        NumIKIterations = mRenderData.rdIkIterations;
+    }
+
+    static int IKEffectorNode = mRenderData.rdIkEffectorNode;
+    static int IKRootNode = mRenderData.rdIkRootNode;
+    if (IKEffectorNode != mRenderData.rdIkEffectorNode || IKRootNode != mRenderData.rdIkRootNode)
+    {
+        mGltfModel->SetInverseKinematicsNodes(mRenderData.rdIkEffectorNode, mRenderData.rdIkRootNode);
+        mGltfModel->ResetNodeData();
+        IKEffectorNode = mRenderData.rdIkEffectorNode;
+        IKRootNode = mRenderData.rdIkRootNode;
+    }
+
     /* animate */
     const bool bIsDualQuatSkinning = mRenderData.rdSkinningMode == ESkinningMode::DualQuat;
 
@@ -230,6 +267,28 @@ void OGLRenderer::Draw()
     {
         mRenderData.rdAnimEndTime = mGltfModel->GetAnimationEndTime(mRenderData.rdAnimClip);
         mGltfModel->BlendAnimationFrame(mRenderData.rdAnimClip, mRenderData.rdAnimTimePosition, BlendFactor, DestAnimIndex);
+    }
+
+    /* solve IK */
+    if (mRenderData.rdIKSolver == EIKSolver::CCD)
+    {
+        mIKTimer->Start();
+        mGltfModel->SolveIKByCCD(mRenderData.rdIkTargetPos);
+        mRenderData.rdIKTime = mIKTimer->Stop();
+    }
+
+    /* draw coordiante arrows on target position */
+    mIKTargetMesh.Vertices.clear();
+    if (mRenderData.rdIKSolver != EIKSolver::None)
+    {
+        mIKTargetMesh = mIKTargetModel->GetVertexData();
+        std::for_each(mIKTargetMesh.Vertices.begin(), mIKTargetMesh.Vertices.end(),[=](auto& Vert)
+        {
+            Vert.Color /= 2.0f;
+            Vert.Position += mRenderData.rdIkTargetPos;
+        });
+
+        mAllMeshes->Vertices.insert(mAllMeshes->Vertices.end(),mIKTargetMesh.Vertices.begin(), mIKTargetMesh.Vertices.end());
     }
 
     /* get gltTF skeleton */
@@ -309,6 +368,7 @@ void OGLRenderer::Draw()
       mRenderData.rdInterpValue);
 
     /* draw a static coordinate system */
+#if 0
     mCoordArrowsMesh.Vertices.clear();
     if (mRenderData.rdDrawWorldCoordArrows)
     {
@@ -319,7 +379,9 @@ void OGLRenderer::Draw()
         });
         mAllMeshes->Vertices.insert(mAllMeshes->Vertices.end(),mCoordArrowsMesh.Vertices.begin(), mCoordArrowsMesh.Vertices.end());
     }
+#endif
 
+#if 0
     mStartPosArrowMesh.Vertices.clear();
     mEndPosArrowMesh.Vertices.clear();
     mQuatPosArrowMesh.Vertices.clear();
@@ -365,8 +427,10 @@ void OGLRenderer::Draw()
         });
         mAllMeshes->Vertices.insert(mAllMeshes->Vertices.end(),mQuatPosArrowMesh.Vertices.begin(),mQuatPosArrowMesh.Vertices.end());
     }
+#endif
 
     /* draw spline */
+#if 0
     mSplineMesh.Vertices.clear();
     if (mRenderData.rdDrawSplineLines)
     {
@@ -376,6 +440,7 @@ void OGLRenderer::Draw()
 
         mAllMeshes->Vertices.insert(mAllMeshes->Vertices.end(),mSplineMesh.Vertices.begin(), mSplineMesh.Vertices.end());
     }
+#endif
 
 #if 0
     /* draw the model itself */
@@ -401,7 +466,10 @@ void OGLRenderer::Draw()
     }
 
     /* upload lines and boxes */
-    //mVertexBuffer->UploadData(*mAllMeshes);
+    if (mAllMeshes->Vertices.size() > 0)
+    {
+        mVertexBuffer->UploadData(*mAllMeshes);
+    }
 
     /* upload required data only when switching GPU and CPU */
     static bool LastGPURenderState = mRenderData.rdGPUVertexSkinning;
@@ -514,7 +582,21 @@ void OGLRenderer::Cleanup()
     mGltfDualQuatSSBuffer.reset();
     mUserInterface->Cleanup();
     mUserInterface.reset();
+
     mSkeletonMesh.reset();
+    mAllMeshes.reset();
+    mIKTargetModel.reset();
+    mSplineModel.reset();
+    mArrowModel.reset();
+    mCoordArrowsModel.reset();
+
+    mFrameTimer.reset();
+    mMatrixGenerateTimer.reset();
+    mUploadToVBOTimer.reset();
+    mUploadToUBOTimer.reset();
+    mUIGenerateTimer.reset();
+    mUIDrawTimer.reset();
+    mIKTimer.reset();
 }
 
 void OGLRenderer::HandleKeyEvents(int Key, int Scancode, int Action, int Mods)

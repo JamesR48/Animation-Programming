@@ -29,6 +29,7 @@ void UserInterface::Init(const OGLRenderData& RenderData)
     mMatrixUploadValues.resize(mNumMatrixUploadValues);
     mUiGenValues.resize(mNumUiGenValues);
     mUiDrawValues.resize(mNumUiDrawValues);
+    mIKValues.resize(mNumIKValues);
 }
 
 void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
@@ -75,6 +76,7 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
     static int MatrixUploadOffset = 0;
     static int UIGenOffset = 0;
     static int UIDrawOffset = 0;
+    static int IKOffset = 0;
 
     while (UpdateTime < ImGui::GetTime())
     {
@@ -100,6 +102,9 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
 
         mUiDrawValues.at(UIDrawOffset) = InOutRenderData.rdUIDrawTime;
         UIDrawOffset = ++UIDrawOffset % mNumUiDrawValues;
+
+        mIKValues.at(IKOffset) = InOutRenderData.rdIKTime;
+        IKOffset = ++IKOffset % mNumIKValues;
 
         // advancing plot data update ~33ms into the future
         UpdateTime += 1.0 / 30.0;
@@ -305,6 +310,33 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
                              uiDrawOverlay.c_str(), 0.0f, FLT_MAX, ImVec2(0, 80));
             ImGui::EndTooltip();
         }
+
+        ImGui::BeginGroup();
+        ImGui::Text("(IK Generation Time)  :");
+        ImGui::SameLine();
+        ImGui::Text("%s", std::to_string(InOutRenderData.rdIKTime).c_str());
+        ImGui::SameLine();
+        ImGui::Text("ms");
+        ImGui::EndGroup();
+
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::BeginTooltip();
+            float averageIKTime = 0.0f;
+            for (const auto value : mIKValues)
+            {
+                averageIKTime += value;
+            }
+            averageIKTime /= static_cast<float>(mNumIKValues);
+            std::string ikOverlay = "now:     " + std::to_string(InOutRenderData.rdIKTime)
+              + " ms\n30s avg: " + std::to_string(averageIKTime) + " ms";
+            ImGui::Text("(IK Generation)");
+            ImGui::SameLine();
+            ImGui::PlotLines("##IKTimes", mIKValues.data(), mIKValues.size(), IKOffset,
+              ikOverlay.c_str(), 0.0f, FLT_MAX, ImVec2(0, 80));
+            ImGui::EndTooltip();
+        }
+
     }
 
     if (ImGui::CollapsingHeader("Camera"))
@@ -550,16 +582,16 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
             ImGui::Text("Split Node  ");
             ImGui::SameLine();
 
-            const std::string CurrentSplitNode = InOutRenderData.rdSkelSplitNodeNames.at(InOutRenderData.rdSkelSplitNode);
+            const std::string CurrentSplitNode = InOutRenderData.rdSkelNodeNames.at(InOutRenderData.rdSkelSplitNode);
             if (ImGui::BeginCombo("##SplitNodeCombo",CurrentSplitNode.c_str()))
             {
-                const int SplitNodeCount = InOutRenderData.rdSkelSplitNodeNames.size();
+                const int SplitNodeCount = InOutRenderData.rdSkelNodeNames.size();
                 for (int i = 0; i < SplitNodeCount; ++i)
                 {
-                    if (InOutRenderData.rdSkelSplitNodeNames.at(i).compare("(invalid)") != 0)
+                    if (InOutRenderData.rdSkelNodeNames.at(i).compare("(invalid)") != 0)
                     {
                         const bool bIsSelected = (InOutRenderData.rdSkelSplitNode == i);
-                        if (ImGui::Selectable(InOutRenderData.rdSkelSplitNodeNames.at(i).c_str(), bIsSelected))
+                        if (ImGui::Selectable(InOutRenderData.rdSkelNodeNames.at(i).c_str(), bIsSelected))
                         {
                             InOutRenderData.rdSkelSplitNode = i;
                         }
@@ -574,6 +606,66 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
             }
         }
     }
+
+    if (ImGui::CollapsingHeader("glTF Inverse Kinematic"))
+            {
+                ImGui::Text("Inverse Kinematics");
+                ImGui::SameLine();
+                if (ImGui::RadioButton("None",
+                  InOutRenderData.rdIKSolver == EIKSolver::None)) {
+                    InOutRenderData.rdIKSolver = EIKSolver::None;
+                  }
+                ImGui::SameLine();
+                if (ImGui::RadioButton("CCD",
+                  InOutRenderData.rdIKSolver == EIKSolver::CCD)) {
+                    InOutRenderData.rdIKSolver = EIKSolver::CCD;
+                  }
+
+                if (InOutRenderData.rdIKSolver == EIKSolver::CCD)
+                {
+                    ImGui::Text("IK Iterations  :");
+                    ImGui::SameLine();
+                    ImGui::SliderInt("##IKITER", &InOutRenderData.rdIkIterations, 0, 15, "%d", Flags);
+
+                    ImGui::Text("Target Position:");
+                    ImGui::SameLine();
+                    ImGui::SliderFloat3("##IKTargetPOS", glm::value_ptr(InOutRenderData.rdIkTargetPos), -10.0f, 10.0f, "%.3f", Flags);
+
+                    ImGui::Text("Effector Node  :");
+                    ImGui::SameLine();
+                    if (ImGui::BeginCombo("##EffectorNodeCombo",
+                      InOutRenderData.rdSkelNodeNames.at(InOutRenderData.rdIkEffectorNode).c_str())) {
+                        for (int i = 0; i < InOutRenderData.rdSkelNodeNames.size(); ++i) {
+                            const bool isSelected = (InOutRenderData.rdIkEffectorNode == i);
+                            if (ImGui::Selectable(InOutRenderData.rdSkelNodeNames.at(i).c_str(), isSelected)) {
+                                InOutRenderData.rdIkEffectorNode = i;
+                            }
+
+                            if (isSelected) {
+                                ImGui::SetItemDefaultFocus();
+                            }
+                        }
+                        ImGui::EndCombo();
+                      }
+
+                    ImGui::Text("IK Root Node   :");
+                    ImGui::SameLine();
+                    if (ImGui::BeginCombo("##RootNodeCombo",
+                      InOutRenderData.rdSkelNodeNames.at(InOutRenderData.rdIkRootNode).c_str())) {
+                        for (int i = 0; i < InOutRenderData.rdSkelNodeNames.size(); ++i) {
+                            const bool isSelected = (InOutRenderData.rdIkRootNode == i);
+                            if (ImGui::Selectable(InOutRenderData.rdSkelNodeNames.at(i).c_str(), isSelected)) {
+                                InOutRenderData.rdIkRootNode = i;
+                            }
+
+                            if (isSelected) {
+                                ImGui::SetItemDefaultFocus();
+                            }
+                        }
+                        ImGui::EndCombo();
+                      }
+                }
+            }
 
     ImGui::End();
 }

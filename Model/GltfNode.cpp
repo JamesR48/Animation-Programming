@@ -1,14 +1,28 @@
 #include "GltfNode.h"
-
 #include <algorithm>
-
 #include "../Tools/Logger.h"
+
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/matrix_decompose.hpp>
 
 GltfNode::GltfNode()
 {
 }
 
 GltfNode::~GltfNode() = default;
+
+std::shared_ptr<GltfNode> GltfNode::GetParentNode()
+{
+    // converting weak_ptr to shared_ptr
+    std::shared_ptr<GltfNode> ParentNode = mParentNode.lock();
+    // pointer is set and not pending destroy?
+    if (ParentNode)
+    {
+        return ParentNode;
+    }
+
+    return nullptr;
+}
 
 std::shared_ptr<GltfNode> GltfNode::CreateRoot(int RootNodeIndex)
 {
@@ -23,6 +37,7 @@ void GltfNode::AddChildren(const std::vector<int>& ChildrenNodes)
     {
         std::shared_ptr<GltfNode> child = std::make_shared<GltfNode>();
         child->mNodeIndex = childNode;
+        child->mParentNode = shared_from_this();
         mChildrenNodes.push_back(child);
     }
 }
@@ -86,6 +101,44 @@ void GltfNode::BlendRotation(const glm::quat &Rotation, float BlendFactor)
     mBlendRotation = glm::slerp(mRotation, Rotation, Factor);
 }
 
+void GltfNode::GetLocalRotation(glm::quat &OutRotation)
+{
+    OutRotation = mBlendRotation;
+}
+
+void GltfNode::GetGlobalRotation(glm::quat &OutRotation)
+{
+    glm::quat Orientation;
+    glm::vec3 Scale;
+    glm::vec3 Translation;
+    glm::vec3 Skew;
+    glm::vec4 Perspective;
+
+    if (!glm::decompose(mNodeMatrix, Scale, Orientation,Translation, Skew, Perspective))
+    {
+        OutRotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+    }
+
+    // returning the inverse since decompose outputs the conjugate of the orientation
+    OutRotation = glm::inverse(Orientation);
+}
+
+void GltfNode::GetGlobalPosition(glm::vec3 &OutPosition)
+{
+    glm::quat Orientation;
+    glm::vec3 Scale;
+    glm::vec3 Translation;
+    glm::vec3 Skew;
+    glm::vec4 Perspective;
+
+    if (!glm::decompose(mNodeMatrix, Scale, Orientation,Translation, Skew, Perspective))
+    {
+        OutPosition = glm::vec3(0.0f, 0.0f, 0.0f);
+    }
+
+    OutPosition = Translation;
+}
+
 void GltfNode::CalculateLocalTRSMatrix()
 {
     glm::mat4 sMatrix = glm::scale(glm::mat4(1.0f), mBlendScale);
@@ -94,14 +147,33 @@ void GltfNode::CalculateLocalTRSMatrix()
     mLocalTRSMatrix = tMatrix * rMatrix * sMatrix;
 }
 
-void GltfNode::CalculateNodeMatrix(const glm::mat4& ParentNodeMatrix)
+void GltfNode::CalculateNodeMatrix()
 {
-    mNodeMatrix = ParentNodeMatrix * mLocalTRSMatrix;
+    CalculateLocalTRSMatrix();
+    glm::mat4 ParentMatrix = glm::mat4(1.0f);
+    std::shared_ptr<GltfNode> ParentNode = mParentNode.lock();
+    if (ParentNode)
+    {
+        ParentNode->GetNodeMatrix(ParentMatrix);
+    }
+    mNodeMatrix = ParentMatrix * mLocalTRSMatrix;
 }
 
 void GltfNode::GetNodeMatrix(glm::mat4& OutNodeMatrix)
 {
     OutNodeMatrix = mNodeMatrix;
+}
+
+void GltfNode::UpdateNodeAndChildMatrices()
+{
+    CalculateNodeMatrix();
+    for (std::shared_ptr<GltfNode>& Child : mChildrenNodes)
+    {
+        if (Child)
+        {
+            Child->UpdateNodeAndChildMatrices();
+        }
+    }
 }
 
 void GltfNode::PrintTree()
