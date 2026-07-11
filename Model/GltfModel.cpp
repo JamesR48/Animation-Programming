@@ -435,6 +435,12 @@ void GltfModel::GetNodeName(const int NodeIndex, std::string &OutNodeName)
 
 void GltfModel::SetInverseKinematicsNodes(int EffectorNodeIndex, int IKChainRootNodeIndex)
 {
+    if (mIKSolver == nullptr)
+    {
+        Logger::Log(1, "%s: Invalid IK Solver\n", __FUNCTION__);
+        return;
+    }
+
     const int NumNodes = mNodeList.size();
     if (EffectorNodeIndex < 0 || EffectorNodeIndex > (NumNodes - 1))
     {
@@ -476,15 +482,42 @@ void GltfModel::SetInverseKinematicsNodes(int EffectorNodeIndex, int IKChainRoot
 
 void GltfModel::SetNumIKIterations(int Iterations)
 {
+    if (mIKSolver == nullptr)
+    {
+        Logger::Log(1, "%s: Invalid IK Solver\n", __FUNCTION__);
+        return;
+    }
+
     mIKSolver->SetNumIterations(Iterations);
 }
 
-void GltfModel::SolveIKByCCD(glm::vec3 Target)
+void GltfModel::SolveIK(glm::vec3 Target, EIKSolver IKSolverType)
 {
-    mIKSolver->SolveCCD(Target);
+    if (mIKSolver == nullptr)
+    {
+        Logger::Log(1, "%s: Invalid IK Solver\n", __FUNCTION__);
+        return;
+    }
 
+    switch (IKSolverType)
+    {
+        case EIKSolver::CCD:
+        {
+            mIKSolver->SolveCCD(Target);
+            break;
+        }
+        case EIKSolver::FABRIK:
+        {
+            mIKSolver->SolveFABRIK(Target);
+            break;
+        }
+        default:
+            break;
+    }
+
+    std::shared_ptr<GltfNode> IKRootRef = mIKSolver->GetIKChainRootNode();
     // updating the vertex skinning matrices
-    UpdateNodeMatrices(mIKSolver->GetIKChainRootNode());
+    UpdateNodeMatrices(IKRootRef);
 }
 
 void GltfModel::CreateVertexBuffers()

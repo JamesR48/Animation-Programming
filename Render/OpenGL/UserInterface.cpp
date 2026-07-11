@@ -608,64 +608,72 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
     }
 
     if (ImGui::CollapsingHeader("glTF Inverse Kinematic"))
+    {
+        ImGui::Text("Inverse Kinematics");
+        ImGui::SameLine();
+        if (ImGui::RadioButton("None", InOutRenderData.rdIKSolver == EIKSolver::None))
+        {
+            InOutRenderData.rdIKSolver = EIKSolver::None;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("CCD",InOutRenderData.rdIKSolver == EIKSolver::CCD))
+        {
+            InOutRenderData.rdIKSolver = EIKSolver::CCD;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("FABRIK",InOutRenderData.rdIKSolver == EIKSolver::FABRIK))
+        {
+            InOutRenderData.rdIKSolver = EIKSolver::FABRIK;
+        }
+
+        if (InOutRenderData.rdIKSolver != EIKSolver::None)
+        {
+            ImGui::Text("IK Iterations  :");
+            ImGui::SameLine();
+            ImGui::SliderInt("##IKITER", &InOutRenderData.rdIkIterations, 0, 15, "%d", Flags);
+            ImGui::Text("Target Position:");
+            ImGui::SameLine();
+            ImGui::SliderFloat3("##IKTargetPOS", glm::value_ptr(InOutRenderData.rdIkTargetPos), -10.0f, 10.0f, "%.3f", Flags);
+            ImGui::Text("Effector Node  :");
+            ImGui::SameLine();
+            if (ImGui::BeginCombo("##EffectorNodeCombo",
+            InOutRenderData.rdSkelNodeNames.at(InOutRenderData.rdIkEffectorNode).c_str()))
             {
-                ImGui::Text("Inverse Kinematics");
-                ImGui::SameLine();
-                if (ImGui::RadioButton("None",
-                  InOutRenderData.rdIKSolver == EIKSolver::None)) {
-                    InOutRenderData.rdIKSolver = EIKSolver::None;
-                  }
-                ImGui::SameLine();
-                if (ImGui::RadioButton("CCD",
-                  InOutRenderData.rdIKSolver == EIKSolver::CCD)) {
-                    InOutRenderData.rdIKSolver = EIKSolver::CCD;
-                  }
-
-                if (InOutRenderData.rdIKSolver == EIKSolver::CCD)
+                for (int i = 0; i < InOutRenderData.rdSkelNodeNames.size(); ++i)
                 {
-                    ImGui::Text("IK Iterations  :");
-                    ImGui::SameLine();
-                    ImGui::SliderInt("##IKITER", &InOutRenderData.rdIkIterations, 0, 15, "%d", Flags);
-
-                    ImGui::Text("Target Position:");
-                    ImGui::SameLine();
-                    ImGui::SliderFloat3("##IKTargetPOS", glm::value_ptr(InOutRenderData.rdIkTargetPos), -10.0f, 10.0f, "%.3f", Flags);
-
-                    ImGui::Text("Effector Node  :");
-                    ImGui::SameLine();
-                    if (ImGui::BeginCombo("##EffectorNodeCombo",
-                      InOutRenderData.rdSkelNodeNames.at(InOutRenderData.rdIkEffectorNode).c_str())) {
-                        for (int i = 0; i < InOutRenderData.rdSkelNodeNames.size(); ++i) {
-                            const bool isSelected = (InOutRenderData.rdIkEffectorNode == i);
-                            if (ImGui::Selectable(InOutRenderData.rdSkelNodeNames.at(i).c_str(), isSelected)) {
-                                InOutRenderData.rdIkEffectorNode = i;
-                            }
-
-                            if (isSelected) {
-                                ImGui::SetItemDefaultFocus();
-                            }
-                        }
-                        ImGui::EndCombo();
-                      }
-
-                    ImGui::Text("IK Root Node   :");
-                    ImGui::SameLine();
-                    if (ImGui::BeginCombo("##RootNodeCombo",
-                      InOutRenderData.rdSkelNodeNames.at(InOutRenderData.rdIkRootNode).c_str())) {
-                        for (int i = 0; i < InOutRenderData.rdSkelNodeNames.size(); ++i) {
-                            const bool isSelected = (InOutRenderData.rdIkRootNode == i);
-                            if (ImGui::Selectable(InOutRenderData.rdSkelNodeNames.at(i).c_str(), isSelected)) {
-                                InOutRenderData.rdIkRootNode = i;
-                            }
-
-                            if (isSelected) {
-                                ImGui::SetItemDefaultFocus();
-                            }
-                        }
-                        ImGui::EndCombo();
-                      }
+                    const bool isSelected = (InOutRenderData.rdIkEffectorNode == i);
+                    if (ImGui::Selectable(InOutRenderData.rdSkelNodeNames.at(i).c_str(), isSelected))
+                    {
+                        InOutRenderData.rdIkEffectorNode = i;
+                    }
+                    if (isSelected)
+                    {
+                        ImGui::SetItemDefaultFocus();
+                    }
                 }
+                ImGui::EndCombo();
             }
+            ImGui::Text("IK Root Node   :");
+            ImGui::SameLine();
+            if (ImGui::BeginCombo("##RootNodeCombo",
+            InOutRenderData.rdSkelNodeNames.at(InOutRenderData.rdIkRootNode).c_str()))
+            {
+                for (int i = 0; i < InOutRenderData.rdSkelNodeNames.size(); ++i)
+                {
+                    const bool isSelected = (InOutRenderData.rdIkRootNode == i);
+                    if (ImGui::Selectable(InOutRenderData.rdSkelNodeNames.at(i).c_str(), isSelected))
+                    {
+                        InOutRenderData.rdIkRootNode = i;
+                    }
+                    if (isSelected)
+                    {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+        }
+    }
 
     ImGui::End();
 }

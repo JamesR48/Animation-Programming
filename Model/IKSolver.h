@@ -19,10 +19,21 @@ public:
     void SetNumIterations(unsigned int Iterations);
 
     bool SolveCCD(glm::vec3 Target);
+    bool SolveFABRIK(glm::vec3 Target);
 
 private:
     /* nodes from effector (at index 0) to IK chain root node (last index) */
     std::vector<std::shared_ptr<GltfNode>> mNodes{};
+    std::vector<float> mBoneLengths{};
+
+    void CalculateBoneLengths();
+
+    void SolveFABRIKForward(glm::vec3 Target);
+    void SolveFABRIKBackward(glm::vec3 Base);
+    void AdjustFABRIKNodes();
+
+    // Copy of the real Node positions to iterate over
+    std::vector<glm::vec3> mFABRIKNodePositions{};
 
     unsigned int mIterations = 0;
     float mThreshold = 0.00001f;

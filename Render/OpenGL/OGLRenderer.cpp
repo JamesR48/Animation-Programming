@@ -270,10 +270,10 @@ void OGLRenderer::Draw()
     }
 
     /* solve IK */
-    if (mRenderData.rdIKSolver == EIKSolver::CCD)
+    if (mRenderData.rdIKSolver != EIKSolver::None)
     {
         mIKTimer->Start();
-        mGltfModel->SolveIKByCCD(mRenderData.rdIkTargetPos);
+        mGltfModel->SolveIK(mRenderData.rdIkTargetPos, mRenderData.rdIKSolver);
         mRenderData.rdIKTime = mIKTimer->Stop();
     }
 

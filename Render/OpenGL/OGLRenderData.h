@@ -30,7 +30,7 @@ enum class EIKSolver
 {
     None = 0,
     CCD,
-    Fabrik
+    FABRIK
 };
 
 struct OGLVertex
