@@ -30,6 +30,10 @@ public:
     void BlendTranslation(const glm::vec3& Translation, float BlendFactor);
     void BlendRotation(const glm::quat& Rotation, float BlendFactor);
 
+    void SetWorldPosition(const glm::vec3& Position);
+    void GetWorldPosition(glm::vec3& OutWorldPos);
+    void SetWorldRotation(const glm::vec3& InRotation);
+
     void GetLocalRotation(glm::quat& OutRotation);
     void GetGlobalRotation(glm::quat& OutRotation);
     void GetGlobalPosition(glm::vec3& OutPosition);
@@ -72,6 +76,9 @@ private:
     glm::vec3 mDestBlendScale = glm::vec3(1.0f);
     glm::vec3 mDestBlendTranslation = glm::vec3(0.0f);
     glm::quat mDestBlendRotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+
+    glm::vec3 mWorldPosition = glm::vec3(0.0f);
+    glm::vec3 mWorldRotation = glm::vec3(0.0f);
 
     // TRS: Translation * Rotation * Scale
     glm::mat4 mLocalTRSMatrix = glm::mat4(1.0f);

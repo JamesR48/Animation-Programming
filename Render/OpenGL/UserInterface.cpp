@@ -32,7 +32,7 @@ void UserInterface::Init(const OGLRenderData& RenderData)
     mIKValues.resize(mNumIKValues);
 }
 
-void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
+void UserInterface::CreateFrame(OGLRenderData& InOutRenderData, ModelSettings& InOutModelSettings)
 {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -355,69 +355,6 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
         ImGui::SliderFloat("##FOV", &InOutRenderData.rdFieldOfView, 40, 150, "%.3f", Flags);
     }
 
-    if (ImGui::CollapsingHeader("SLERP + Spline"))
-    {
-        if (ImGui::Button("Reset All"))
-        {
-            InOutRenderData.rdResetAnglesAndInterp = true;
-        }
-
-        ImGui::Text("Interpolate");
-        ImGui::SameLine();
-        ImGui::SliderFloat("##Interp", &InOutRenderData.rdInterpValue, 0.0f, 1.0f, "%.3f", Flags);
-
-        if (ImGui::CollapsingHeader("SLERP"))
-        {
-            ImGui::Checkbox("Draw World Coordinate Arrows", &InOutRenderData.rdDrawWorldCoordArrows);
-            ImGui::Checkbox("Draw Model Coordinate Arrows", &InOutRenderData.rdDrawModelCoordArrows);
-
-            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
-            ImGui::Text("X Rotation ");
-            ImGui::PopStyleColor();
-            ImGui::SameLine();
-            ImGui::SliderInt2("##ROTX", InOutRenderData.rdRotXAngle.data(), 0, 360, "%d", Flags);
-
-            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
-            ImGui::Text("Y Rotation ");
-            ImGui::PopStyleColor();
-            ImGui::SameLine();
-            ImGui::SliderInt2("##ROTY", InOutRenderData.rdRotYAngle.data(), 0, 360, "%d", Flags);
-
-            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 0, 255, 255));
-            ImGui::Text("Z Rotation ");
-            ImGui::PopStyleColor();
-            ImGui::SameLine();
-            ImGui::SliderInt2("##ROTZ", InOutRenderData.rdRotZAngle.data(), 0, 360, "%d", Flags);
-        }
-
-        if (ImGui::CollapsingHeader("Spline"))
-        {
-            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
-            ImGui::Text("Start Vec  ");
-            ImGui::PopStyleColor();
-            ImGui::SameLine();
-            ImGui::SliderFloat3("##STARTVEC", glm::value_ptr(InOutRenderData.rdSplineStartVertex), -10.0f, 10.0f, "%.3f", Flags);
-
-            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
-            ImGui::Text("Start Tang ");
-            ImGui::PopStyleColor();
-            ImGui::SameLine();
-            ImGui::SliderFloat3("##STARTTANG", glm::value_ptr(InOutRenderData.rdSplineStartTangent), -10.0f, 10.0f, "%.3f", Flags);
-
-            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
-            ImGui::Text("End Vec    ");
-            ImGui::PopStyleColor();
-            ImGui::SameLine();
-            ImGui::SliderFloat3("##ENDVEC", glm::value_ptr(InOutRenderData.rdSplineEndVertex), -10.0f, 10.0f, "%.3f", Flags);
-
-            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
-            ImGui::Text("End Tang   ");
-            ImGui::PopStyleColor();
-            ImGui::SameLine();
-            ImGui::SliderFloat3("##ENDTANG", glm::value_ptr(InOutRenderData.rdSplineEndTangent), -10.0f, 10.0f, "%.3f", Flags);
-        }
-    }
-
     if (ImGui::CollapsingHeader("Lighting"))
     {
         ImGui::Text("LightPosition X");
@@ -433,74 +370,97 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
         ImGui::SliderFloat("##LightPosZ", &InOutRenderData.rdLightPostion.z, -360.0f, 360.0f, "%.3f", Flags);
     }
 
+    if (ImGui::CollapsingHeader("glTF Instances"))
+    {
+        ImGui::Text("Model Instances  : %d", InOutRenderData.rdNumberOfInstances);
+
+        ImGui::Text("Selected Instance:");
+        ImGui::SameLine();
+        ImGui::PushButtonRepeat(true);
+        if (ImGui::ArrowButton("##LEFT", ImGuiDir_Left) && InOutRenderData.rdCurrentSelectedInstance > 0)
+        {
+            InOutRenderData.rdCurrentSelectedInstance--;
+        }
+        ImGui::SameLine();
+        ImGui::PushItemWidth(30);
+        ImGui::DragInt("##SELINST", &InOutRenderData.rdCurrentSelectedInstance, 1, 0,
+          InOutRenderData.rdNumberOfInstances - 1, "%3d", Flags);
+        ImGui::PopItemWidth();
+        ImGui::SameLine();
+        if (ImGui::ArrowButton("##RIGHT", ImGuiDir_Right) && InOutRenderData.rdCurrentSelectedInstance < (InOutRenderData.rdNumberOfInstances - 1))
+        {
+            InOutRenderData.rdCurrentSelectedInstance++;
+        }
+        ImGui::PopButtonRepeat();
+
+        ImGui::Text("World Pos  :");
+        ImGui::SameLine();
+        ImGui::SliderFloat3("##WORLDPOS", glm::value_ptr(InOutModelSettings.msWorldPosition),
+          -25.0f, 25.0f, "%.1f", Flags);
+
+        ImGui::Text("World Rotation   :");
+        ImGui::SameLine();
+        ImGui::SliderFloat("##WORLDROT", &InOutModelSettings.msWorldRotation.y,
+          -180.0f, 180.0f, "%.0f", Flags);
+    }
+
     if (ImGui::CollapsingHeader("glTF Model"))
     {
-        ImGui::Checkbox("Draw Model", &InOutRenderData.rdDrawGltfModel);
-        ImGui::Checkbox("Draw Skeleton", &InOutRenderData.rdDrawSkeleton);
-        ImGui::Checkbox("Vertex Skinning Method:", &InOutRenderData.rdGPUVertexSkinning);
-        ImGui::SameLine();
-        if (InOutRenderData.rdGPUVertexSkinning)
-        {
-            ImGui::Text("GPU");
-        }
-        else
-        {
-            ImGui::Text("Code");
-        }
-        ImGui::Indent();
+        ImGui::Checkbox("Draw Model", &InOutModelSettings.msDrawModel);
+        ImGui::Checkbox("Draw Skeleton", &InOutModelSettings.msDrawSkeleton);
 
         ImGui::Text("Vertex Skinning:");
         ImGui::SameLine();
-        if (ImGui::RadioButton("Linear",InOutRenderData.rdSkinningMode == ESkinningMode::Linear))
+        if (ImGui::RadioButton("Linear",InOutModelSettings.msVertexSkinningMode == ESkinningMode::Linear))
         {
-            InOutRenderData.rdSkinningMode = ESkinningMode::Linear;
+            InOutModelSettings.msVertexSkinningMode = ESkinningMode::Linear;
         }
         ImGui::SameLine();
-        if (ImGui::RadioButton("Dual Quaternion",InOutRenderData.rdSkinningMode == ESkinningMode::DualQuat))
+        if (ImGui::RadioButton("Dual Quaternion",InOutModelSettings.msVertexSkinningMode == ESkinningMode::DualQuat))
         {
-            InOutRenderData.rdSkinningMode = ESkinningMode::DualQuat;
+            InOutModelSettings.msVertexSkinningMode = ESkinningMode::DualQuat;
         }
     }
 
     if (ImGui::CollapsingHeader("glTF Animation"))
     {
-        ImGui::Checkbox("Play Animation", &InOutRenderData.rdPlayAnimation);
+        ImGui::Checkbox("Play Animation", &InOutModelSettings.msPlayAnimation);
 
-        if (!InOutRenderData.rdPlayAnimation)
+        if (!InOutModelSettings.msPlayAnimation)
         {
             ImGui::BeginDisabled();
         }
 
         ImGui::Text("Animation Direction:");
         ImGui::SameLine();
-        if (ImGui::RadioButton("Forward", InOutRenderData.rdAnimationPlayDirection == EPlaybackDirection::Forward))
+        if (ImGui::RadioButton("Forward", InOutModelSettings.msAnimationPlayDirection == EPlaybackDirection::Forward))
         {
-            InOutRenderData.rdAnimationPlayDirection = EPlaybackDirection::Forward;
+            InOutModelSettings.msAnimationPlayDirection = EPlaybackDirection::Forward;
         }
         ImGui::SameLine();
-        if (ImGui::RadioButton("Backward",InOutRenderData.rdAnimationPlayDirection == EPlaybackDirection::Backward))
+        if (ImGui::RadioButton("Backward",InOutModelSettings.msAnimationPlayDirection == EPlaybackDirection::Backward))
         {
-            InOutRenderData.rdAnimationPlayDirection = EPlaybackDirection::Backward;
+            InOutModelSettings.msAnimationPlayDirection = EPlaybackDirection::Backward;
         }
 
-        if (!InOutRenderData.rdPlayAnimation)
+        if (!InOutModelSettings.msPlayAnimation)
         {
             ImGui::EndDisabled();
         }
 
         ImGui::Text("Clip ");
         ImGui::SameLine();
-        const std::string CurrentClip = InOutRenderData.rdClipNames.at(InOutRenderData.rdAnimClip);
+        const std::string CurrentClip = InOutModelSettings.msClipNames.at(InOutModelSettings.msAnimClip);
         if (ImGui::BeginCombo("##ClipCombo",CurrentClip.c_str()))
         {
-            const int ClipCount = InOutRenderData.rdClipNames.size();
+            const int ClipCount = InOutModelSettings.msClipNames.size();
             for (int i = 0; i < ClipCount; ++i)
             {
-                const bool bIsSelected = (InOutRenderData.rdAnimClip == i);
-                const std::string SelectedClip = InOutRenderData.rdClipNames.at(i);
+                const bool bIsSelected = (InOutModelSettings.msAnimClip == i);
+                const std::string SelectedClip = InOutModelSettings.msClipNames.at(i);
                 if (ImGui::Selectable(SelectedClip.c_str(), bIsSelected))
                 {
-                    InOutRenderData.rdAnimClip = i;
+                    InOutModelSettings.msAnimClip = i;
                 }
 
                 if (bIsSelected)
@@ -511,17 +471,17 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
             ImGui::EndCombo();
         }
 
-        if (InOutRenderData.rdPlayAnimation)
+        if (InOutModelSettings.msPlayAnimation)
         {
             ImGui::Text("Speed  ");
             ImGui::SameLine();
-            ImGui::SliderFloat("##ClipSpeed", &InOutRenderData.rdAnimSpeed, 0.0f, 2.0f, "%.3f", Flags);
+            ImGui::SliderFloat("##ClipSpeed", &InOutModelSettings.msAnimSpeed, 0.0f, 2.0f, "%.3f", Flags);
         }
         else
         {
             ImGui::Text("Timepos");
             ImGui::SameLine();
-            ImGui::SliderFloat("##ClipPos", &InOutRenderData.rdAnimTimePosition, 0.0f, InOutRenderData.rdAnimEndTime, "%.3f", Flags);
+            ImGui::SliderFloat("##ClipPos", &InOutModelSettings.msAnimTimePosition, 0.0f, InOutModelSettings.msAnimEndTime, "%.3f", Flags);
         }
     }
 
@@ -529,33 +489,33 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
     {
         ImGui::Text("Blending Type:");
         ImGui::SameLine();
-        if (ImGui::RadioButton("Crossfading",InOutRenderData.rdBlendingMode == EBlendMode::CrossFade))
+        if (ImGui::RadioButton("Crossfading",InOutModelSettings.msBlendingMode == EBlendMode::CrossFade))
         {
-            InOutRenderData.rdBlendingMode = EBlendMode::CrossFade;
+            InOutModelSettings.msBlendingMode = EBlendMode::CrossFade;
         }
         ImGui::SameLine();
-        if (ImGui::RadioButton("Additive",InOutRenderData.rdBlendingMode == EBlendMode::Additive))
+        if (ImGui::RadioButton("Additive",InOutModelSettings.msBlendingMode == EBlendMode::Additive))
         {
-            InOutRenderData.rdBlendingMode = EBlendMode::Additive;
+            InOutModelSettings.msBlendingMode = EBlendMode::Additive;
         }
 
-        const bool bIsCrossBlending = InOutRenderData.rdBlendingMode != EBlendMode::FadeInOut;
+        const bool bIsCrossBlending = InOutModelSettings.msBlendingMode != EBlendMode::FadeInOut;
         if (bIsCrossBlending)
         {
             ImGui::Text("Dest Clip   ");
             ImGui::SameLine();
 
-            const std::string CurrentDestClip = InOutRenderData.rdClipNames.at(InOutRenderData.rdCrossBlendDestAnimClip);
+            const std::string CurrentDestClip = InOutModelSettings.msClipNames.at(InOutModelSettings.msCrossBlendDestAnimClip);
             if (ImGui::BeginCombo("##DestClipCombo",CurrentDestClip.c_str()))
             {
-                const int ClipCount = InOutRenderData.rdClipNames.size();
+                const int ClipCount = InOutModelSettings.msClipNames.size();
                 for (int i = 0; i < ClipCount; ++i)
                 {
-                    const bool bIsSelected = (InOutRenderData.rdCrossBlendDestAnimClip == i);
-                    const std::string SelectedClip = InOutRenderData.rdClipNames.at(i);
+                    const bool bIsSelected = (InOutModelSettings.msCrossBlendDestAnimClip == i);
+                    const std::string SelectedClip = InOutModelSettings.msClipNames.at(i);
                     if (ImGui::Selectable(SelectedClip.c_str(), bIsSelected))
                     {
-                        InOutRenderData.rdCrossBlendDestAnimClip = i;
+                        InOutModelSettings.msCrossBlendDestAnimClip = i;
                     }
 
                     if (bIsSelected)
@@ -568,32 +528,32 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
 
             ImGui::Text("Cross Blend ");
             ImGui::SameLine();
-            ImGui::SliderFloat("##CrossBlendFactor", &InOutRenderData.rdAnimCrossBlendFactor, 0.0f, 1.0f, "%.3f", Flags);
+            ImGui::SliderFloat("##CrossBlendFactor", &InOutModelSettings.msAnimCrossBlendFactor, 0.0f, 1.0f, "%.3f", Flags);
         }
         else
         {
             ImGui::Text("Blend Factor");
             ImGui::SameLine();
-            ImGui::SliderFloat("##BlendFactor", &InOutRenderData.rdAnimBlendFactor, 0.0f, 1.0f, "%.3f", Flags);
+            ImGui::SliderFloat("##BlendFactor", &InOutModelSettings.msAnimBlendFactor, 0.0f, 1.0f, "%.3f", Flags);
         }
 
-        if (InOutRenderData.rdBlendingMode == EBlendMode::Additive)
+        if (InOutModelSettings.msBlendingMode == EBlendMode::Additive)
         {
             ImGui::Text("Split Node  ");
             ImGui::SameLine();
 
-            const std::string CurrentSplitNode = InOutRenderData.rdSkelNodeNames.at(InOutRenderData.rdSkelSplitNode);
+            const std::string CurrentSplitNode = InOutModelSettings.msSkelNodeNames.at(InOutModelSettings.msSkelSplitNode);
             if (ImGui::BeginCombo("##SplitNodeCombo",CurrentSplitNode.c_str()))
             {
-                const int SplitNodeCount = InOutRenderData.rdSkelNodeNames.size();
+                const int SplitNodeCount = InOutModelSettings.msSkelNodeNames.size();
                 for (int i = 0; i < SplitNodeCount; ++i)
                 {
-                    if (InOutRenderData.rdSkelNodeNames.at(i).compare("(invalid)") != 0)
+                    if (InOutModelSettings.msSkelNodeNames.at(i).compare("(invalid)") != 0)
                     {
-                        const bool bIsSelected = (InOutRenderData.rdSkelSplitNode == i);
-                        if (ImGui::Selectable(InOutRenderData.rdSkelNodeNames.at(i).c_str(), bIsSelected))
+                        const bool bIsSelected = (InOutModelSettings.msSkelSplitNode == i);
+                        if (ImGui::Selectable(InOutModelSettings.msSkelNodeNames.at(i).c_str(), bIsSelected))
                         {
-                            InOutRenderData.rdSkelSplitNode = i;
+                            InOutModelSettings.msSkelSplitNode = i;
                         }
 
                         if (bIsSelected)
@@ -611,40 +571,40 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
     {
         ImGui::Text("Inverse Kinematics");
         ImGui::SameLine();
-        if (ImGui::RadioButton("None", InOutRenderData.rdIKSolver == EIKSolver::None))
+        if (ImGui::RadioButton("None", InOutModelSettings.msIKSolver == EIKSolver::None))
         {
-            InOutRenderData.rdIKSolver = EIKSolver::None;
+            InOutModelSettings.msIKSolver = EIKSolver::None;
         }
         ImGui::SameLine();
-        if (ImGui::RadioButton("CCD",InOutRenderData.rdIKSolver == EIKSolver::CCD))
+        if (ImGui::RadioButton("CCD",InOutModelSettings.msIKSolver == EIKSolver::CCD))
         {
-            InOutRenderData.rdIKSolver = EIKSolver::CCD;
+            InOutModelSettings.msIKSolver = EIKSolver::CCD;
         }
         ImGui::SameLine();
-        if (ImGui::RadioButton("FABRIK",InOutRenderData.rdIKSolver == EIKSolver::FABRIK))
+        if (ImGui::RadioButton("FABRIK",InOutModelSettings.msIKSolver == EIKSolver::FABRIK))
         {
-            InOutRenderData.rdIKSolver = EIKSolver::FABRIK;
+            InOutModelSettings.msIKSolver = EIKSolver::FABRIK;
         }
 
-        if (InOutRenderData.rdIKSolver != EIKSolver::None)
+        if (InOutModelSettings.msIKSolver != EIKSolver::None)
         {
             ImGui::Text("IK Iterations  :");
             ImGui::SameLine();
-            ImGui::SliderInt("##IKITER", &InOutRenderData.rdIkIterations, 0, 15, "%d", Flags);
+            ImGui::SliderInt("##IKITER", &InOutModelSettings.msIKIterations, 0, 15, "%d", Flags);
             ImGui::Text("Target Position:");
             ImGui::SameLine();
-            ImGui::SliderFloat3("##IKTargetPOS", glm::value_ptr(InOutRenderData.rdIkTargetPos), -10.0f, 10.0f, "%.3f", Flags);
+            ImGui::SliderFloat3("##IKTargetPOS", glm::value_ptr(InOutModelSettings.msIKTargetPos), -10.0f, 10.0f, "%.3f", Flags);
             ImGui::Text("Effector Node  :");
             ImGui::SameLine();
             if (ImGui::BeginCombo("##EffectorNodeCombo",
-            InOutRenderData.rdSkelNodeNames.at(InOutRenderData.rdIkEffectorNode).c_str()))
+            InOutModelSettings.msSkelNodeNames.at(InOutModelSettings.msIKEffectorNode).c_str()))
             {
-                for (int i = 0; i < InOutRenderData.rdSkelNodeNames.size(); ++i)
+                for (int i = 0; i < InOutModelSettings.msSkelNodeNames.size(); ++i)
                 {
-                    const bool isSelected = (InOutRenderData.rdIkEffectorNode == i);
-                    if (ImGui::Selectable(InOutRenderData.rdSkelNodeNames.at(i).c_str(), isSelected))
+                    const bool isSelected = (InOutModelSettings.msIKEffectorNode == i);
+                    if (ImGui::Selectable(InOutModelSettings.msSkelNodeNames.at(i).c_str(), isSelected))
                     {
-                        InOutRenderData.rdIkEffectorNode = i;
+                        InOutModelSettings.msIKEffectorNode = i;
                     }
                     if (isSelected)
                     {
@@ -656,14 +616,14 @@ void UserInterface::CreateFrame(OGLRenderData& InOutRenderData)
             ImGui::Text("IK Root Node   :");
             ImGui::SameLine();
             if (ImGui::BeginCombo("##RootNodeCombo",
-            InOutRenderData.rdSkelNodeNames.at(InOutRenderData.rdIkRootNode).c_str()))
+            InOutModelSettings.msSkelNodeNames.at(InOutModelSettings.msIKRootNode).c_str()))
             {
-                for (int i = 0; i < InOutRenderData.rdSkelNodeNames.size(); ++i)
+                for (int i = 0; i < InOutModelSettings.msSkelNodeNames.size(); ++i)
                 {
-                    const bool isSelected = (InOutRenderData.rdIkRootNode == i);
-                    if (ImGui::Selectable(InOutRenderData.rdSkelNodeNames.at(i).c_str(), isSelected))
+                    const bool isSelected = (InOutModelSettings.msIKRootNode == i);
+                    if (ImGui::Selectable(InOutModelSettings.msSkelNodeNames.at(i).c_str(), isSelected))
                     {
-                        InOutRenderData.rdIkRootNode = i;
+                        InOutModelSettings.msIKRootNode = i;
                     }
                     if (isSelected)
                     {

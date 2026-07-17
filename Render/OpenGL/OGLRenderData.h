@@ -97,37 +97,8 @@ struct OGLRenderData
     glm::vec3 rdSplineEndVertex = glm::vec3(0.0f);
     glm::vec3 rdSplineEndTangent = glm::vec3(0.0f);
 
-    float rdInterpValue = 0.0f;
-
-    ESkinningMode rdSkinningMode = ESkinningMode::Linear;
-    EBlendMode rdBlendingMode = EBlendMode::FadeInOut;
-    EPlaybackDirection rdAnimationPlayDirection = EPlaybackDirection::Forward;
-    EIKSolver rdIKSolver = EIKSolver::None;
-
-    bool rdDrawGltfModel = true;
-    bool rdDrawSkeleton = true;
-    bool rdGPUVertexSkinning = true;
-
-    bool rdPlayAnimation = true;
-    std::vector<std::string> rdClipNames{};
-    int rdAnimClip = 0;
-    int rdAnimClipSize = 0;
-    float rdAnimSpeed = 1.0f;
-    float rdAnimTimePosition = 0.0f;
-    float rdAnimEndTime = 0.0f;
-    float rdAnimBlendFactor = 1.0f;
-    int rdModelNodeCount = 0;
-
-    int rdCrossBlendDestAnimClip = 0;
-    float rdAnimCrossBlendFactor = 0.0f;
-
-    int rdSkelSplitNode = 0;
-    std::vector<std::string> rdSkelNodeNames{};
-
-    int rdIkIterations = 10;
-    glm::vec3 rdIkTargetPos = glm::vec3(0.0f, 3.0f, 1.0f);
-    int rdIkEffectorNode = 0;
-    int rdIkRootNode = 0;
+    int rdNumberOfInstances = 0;
+    int rdCurrentSelectedInstance = 0;
 };
 
 #endif //CPPANIMPROGRAMMING_OGLRENDERDATA_H

@@ -24,6 +24,12 @@ class GltfNode;
 class GltfAnimationClip;
 struct OGLMesh;
 
+struct GltfNodeData
+{
+    std::shared_ptr<GltfNode> RootNode;
+    std::vector<std::shared_ptr<GltfNode>> NodeList;
+};
+
 class GltfModel
 {
 public:
@@ -36,36 +42,22 @@ public:
     void Cleanup();
     void UploadVertexBuffers();
     void UploadIndexBuffer();
-    void ApplyCPUVertexSkinning(bool bEnableDualQuats);
-    std::shared_ptr<OGLMesh> GetSkeleton();
-    int GetJointMatrixSize() const;
-    void GetJointMatrices(std::vector<glm::mat4>& OutJointMatrices);
-    int GetJointDualQuatsSize() const;
-    void GetJointDualQuats(std::vector<glm::mat2x4>& OutJointDualQuats);
+    void ResetNodeData(std::shared_ptr<GltfNode>& InOutTreeNode);
 
-    // Passing a DestAnimIndex > -1 will apply cross-blending between both animations instead of the binding pose
-    void PlayAnimation(const int SourceAnimIndex, const float BlendFactor, const int DestAnimIndex = -1, const float PlaybackSpeed = 1.0f, const EPlaybackDirection PlaybackDirection = EPlaybackDirection::Forward);
+    void GetModelFilename(std::string& OutModelName);
+    int GetTriangleCount() const;
+    int GetNodeCount() const;
+    void GetGltfNodes(GltfNodeData& OutNodeData);
+    void GetNodeList(std::vector<std::shared_ptr<GltfNode>>& InOutNodeList, int NodeIndex);
 
-    void BlendAnimationFrame(const int SourceAnimIndex, const float Time, const float BlendFactor, const int DestAnimIndex = -1);
-
-    float GetAnimationEndTime(const int AnimIndex) const;
-    void GetClipName(const int AnimIndex, std::string& Name);
-
-    void ResetNodeData();
-    void SetSkeletonSplitNode(const int NodeIndex);
-    void GetNodeName(const int NodeIndex, std::string& OutNodeName);
-
-    void SetInverseKinematicsNodes(int EffectorNodeIndex, int IKChainRootNodeIndex);
-    void SetNumIKIterations(int Iterations);
-    void SolveIK(glm::vec3 Target, EIKSolver IKSolverType);
-
+    void GetInverseBindMatrices(std::vector<glm::mat4>& OutMatrices);
+    void GetNodeToJoint(std::vector<int>& OutNodeToJoint);
+    void GetAnimClips(std::vector<std::shared_ptr<GltfAnimationClip>>& OutAnimClips);
 private:
 
     void CreateVertexBuffers();
     void CreateIndexBuffer();
-    int GetTriangleCount() const;
 
-    void GetSkeletonPerNode(std::shared_ptr<GltfNode> TreeNode);
     void GetJointData();
     void GetWeightData();
     void GetInvBindMatrices();
@@ -78,18 +70,10 @@ private:
     // sets the node values for translation, rotation, scale. Triggers the calculation of the LocalTRS and Node matrices
     void GetNodeData(std::shared_ptr<GltfNode>& TreeNode);
 
-    void ResetNodeData(const std::shared_ptr<GltfNode>& TreeNode);
-    void UpdateNodeMatrices(std::shared_ptr<GltfNode>& TreeNode);
-    void UpdateJointMatricesAndQuats(std::shared_ptr<GltfNode>& TreeNode);
-    void UpdateAdditiveMask(const std::shared_ptr<GltfNode>& TreeNode, const int SplitNodeIndex);
-
     void GetAnimations();
 
     std::vector<glm::tvec4<uint16_t>> mJointVec{};
     std::vector<glm::vec4> mWeightVec{};
-    std::vector<glm::mat4> mJointMatrices{};
-    //  GLSL shaders don’t support quaternions or dual quaternions, must use a 2x4 matrix to transport the data
-    std::vector<glm::mat2x4> mJointDualQuats{};
     // To calculate the binding pose of the model
     std::vector<glm::mat4> mInverseBindMatrices{};
 
@@ -101,9 +85,6 @@ private:
 
     std::vector<glm::vec3> mAlteredPositions{};
 
-    std::shared_ptr<OGLMesh> mSkeletonMesh = nullptr;
-    std::shared_ptr<GltfNode> mRootNode = nullptr;
-
     std::vector<std::shared_ptr<GltfNode>> mNodeList;
 
     std::vector<std::shared_ptr<GltfAnimationClip>> mAnimClips{};
@@ -111,9 +92,8 @@ private:
     std::unique_ptr<tinygltf::Model> mModel = nullptr;
     std::unique_ptr<Texture> mTex = nullptr;
 
-    std::bitset<MAX_GLTF_NODES> mAdditiveAnimationMask{0};
-
-    std::unique_ptr<IKSolver> mIKSolver = nullptr;
+    std::string mModelFilename;
+    int mNodeCount = 0;
 
     GLuint mVAO = 0;
     std::vector<GLuint> mVertexVBO{};

@@ -19,12 +19,14 @@ layout (std430, binding = 2) readonly buffer JointDualQuats {
     mat2x4 JointDQs[];
 };
 
+uniform int aModelStride;
+
 mat2x4 GetJointTransform(ivec4 joints, vec4 weights) {
     // read dual quaterions from buffer
-    mat2x4 dq0 = JointDQs[joints.x];
-    mat2x4 dq1 = JointDQs[joints.y];
-    mat2x4 dq2 = JointDQs[joints.z];
-    mat2x4 dq3 = JointDQs[joints.w];
+    mat2x4 dq0 = JointDQs[joints.x + aModelStride];
+    mat2x4 dq1 = JointDQs[joints.y + aModelStride];
+    mat2x4 dq2 = JointDQs[joints.z + aModelStride];
+    mat2x4 dq3 = JointDQs[joints.w + aModelStride];
 
     // shortest rotation
     weights.y *= sign(dot(dq0[0], dq1[0]));

@@ -2,12 +2,13 @@
 #define CPPANIMPROGRAMMING_USERINTERFACE_H
 
 #include "OGLRenderData.h"
+#include "../../Model/ModelSettings.h"
 
 class UserInterface
 {
 public:
     void Init(const OGLRenderData& RenderData);
-    void CreateFrame(OGLRenderData& InOutRenderData);
+    void CreateFrame(OGLRenderData& InOutRenderData, ModelSettings& InOutModelSettings);
     void Render();
     void Cleanup();
 

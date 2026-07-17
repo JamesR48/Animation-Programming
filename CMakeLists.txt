@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 4.2)
 project(CPPAnimProgramming)
 
+# Add optimization flags for Release builds
+if(MSVC)
+    set(CMAKE_CXX_FLAGS_RELEASE "/O2 /NDEBUG")
+    set(CMAKE_C_FLAGS_RELEASE "/O2 /NDEBUG")
+else()
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 
 file(GLOB_RECURSE SOURCE_FILES

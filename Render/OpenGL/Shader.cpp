@@ -22,6 +22,28 @@ void Shader::Use()
     glUseProgram(mShaderProgram);
 }
 
+bool Shader::GetUniformLocation(const std::string &UniformName)
+{
+    if (mShaderProgram > 0)
+    {
+        mUniformLocation = glGetUniformLocation(mShaderProgram, UniformName.c_str());
+        return mUniformLocation > -1;
+    }
+    return false;
+}
+
+void Shader::SetUniformValue(const int Value)
+{
+    if (mShaderProgram > 0)
+    {
+        /* 0 is a valid location */
+        if (mUniformLocation > -1)
+        {
+            glUniform1i(mUniformLocation, Value);
+        }
+    }
+}
+
 void Shader::Cleanup()
 {
     // This also remove the shaders

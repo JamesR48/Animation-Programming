@@ -20,6 +20,7 @@ class CoordArrowsModel;
 class ArrowModel;
 class SplineModel;
 class GltfModel;
+class GltfInstance;
 
 class OGLRenderer
 {
@@ -64,34 +65,18 @@ private:
     // models
     std::unique_ptr<CoordArrowsModel> mCoordArrowsModel = nullptr;
     OGLMesh mCoordArrowsMesh{};
-    std::unique_ptr<ArrowModel> mArrowModel = nullptr;
-    OGLMesh mStartPosArrowMesh{};
-    OGLMesh mEndPosArrowMesh{};
-    OGLMesh mQuatPosArrowMesh{};
 
-    std::unique_ptr<CoordArrowsModel> mIKTargetModel = nullptr;
-    OGLMesh mIKTargetMesh{};
-
-    std::unique_ptr<OGLMesh> mAllMeshes = nullptr;
-
-    std::unique_ptr<SplineModel> mSplineModel = nullptr;
-    OGLMesh mSplineMesh{};
-
-    std::unique_ptr<GltfModel> mGltfModel = nullptr;
-
-    unsigned int mLineIndexCount = 0;
-
-    std::shared_ptr<OGLMesh> mSkeletonMesh = nullptr;
+    std::unique_ptr<OGLMesh> mLineMesh = nullptr;
     unsigned int mSkeletonLineIndexCount = 0;
+    unsigned int mCoordArrowsLineIndexCount = 0;
+
+    std::shared_ptr<GltfModel> mGltfModel = nullptr;
+
+    std::vector<std::shared_ptr<GltfInstance>> mGltfInstances{};
+    std::vector<glm::mat4> mModelJointMatrices{};
+    std::vector<glm::mat2x4> mModelJointDualQuats{};
 
     OGLRenderData mRenderData{};
-
-    glm::quat mQuatModelOrientation[2] = { glm::quat(), glm::quat() };
-    glm::quat mQuatModelOrientationConjugate[2] = { glm::quat(), glm::quat() };
-    glm::quat mQuatMix = glm::quat();
-    glm::quat mQuatMixConjugate = glm::quat();
-
-    bool mModelUploadRequired = true;
 
     bool mMouseLock = false;
     int mMouseXPos = 0;

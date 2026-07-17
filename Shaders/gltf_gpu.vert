@@ -15,6 +15,8 @@ layout (std140, binding = 0) uniform Matrices
     mat4 Projection;
 };
 
+uniform int aModelStride;
+
 // for Shader Storage Buffer Objects (SSBOs)
 layout (std430, binding = 1) readonly buffer JointMatrices
 {
@@ -24,10 +26,10 @@ layout (std430, binding = 1) readonly buffer JointMatrices
 void main()
 {
     mat4 SkinMat =
-    aJointWeight.x * JointMat[int(aJointIndices.x)] +
-    aJointWeight.y * JointMat[int(aJointIndices.y)] +
-    aJointWeight.z * JointMat[int(aJointIndices.z)] +
-    aJointWeight.w * JointMat[int(aJointIndices.w)];
+    aJointWeight.x * JointMat[int(aJointIndices.x) + aModelStride] +
+    aJointWeight.y * JointMat[int(aJointIndices.y) + aModelStride] +
+    aJointWeight.z * JointMat[int(aJointIndices.z) + aModelStride] +
+    aJointWeight.w * JointMat[int(aJointIndices.w) + aModelStride];
 
     gl_Position = Projection * View * SkinMat * vec4(aPos, 1.0);
     Normal = vec3(transpose(inverse(SkinMat)) * vec4(aNormal, 1.0));
