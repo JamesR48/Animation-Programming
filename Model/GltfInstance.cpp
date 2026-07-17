@@ -153,6 +153,11 @@ void GltfInstance::SetSkeletonSplitNode(const int NodeIndex)
     UpdateAdditiveMask(mRootNode, NodeIndex);
 }
 
+std::shared_ptr<GltfModel> GltfInstance::GetGltfModel()
+{
+    return mGltfModel;
+}
+
 std::shared_ptr<OGLMesh> GltfInstance::GetSkeleton()
 {
     if (mSkeletonMesh == nullptr)

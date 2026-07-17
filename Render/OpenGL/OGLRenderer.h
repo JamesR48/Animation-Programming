@@ -70,9 +70,14 @@ private:
     unsigned int mSkeletonLineIndexCount = 0;
     unsigned int mCoordArrowsLineIndexCount = 0;
 
-    std::shared_ptr<GltfModel> mGltfModel = nullptr;
+    std::vector<std::shared_ptr<GltfModel>> mGltfModels{};
 
     std::vector<std::shared_ptr<GltfInstance>> mGltfInstances{};
+    /* instances using joint matrices */
+    std::vector<std::shared_ptr<GltfInstance>> mGltfMatrixInstances{};
+    /* instances using dual quats */
+    std::vector<std::shared_ptr<GltfInstance>> mGltfDQInstances{};
+
     std::vector<glm::mat4> mModelJointMatrices{};
     std::vector<glm::mat2x4> mModelJointDualQuats{};
 

@@ -24,6 +24,7 @@ public:
 
     void ResetNodeData();
     void SetSkeletonSplitNode(const int NodeIndex);
+    std::shared_ptr<GltfModel> GetGltfModel();
     std::shared_ptr<OGLMesh> GetSkeleton();
     int GetJointMatrixSize() const;
     void GetJointMatrices(std::vector<glm::mat4>& OutJointMatrices);
