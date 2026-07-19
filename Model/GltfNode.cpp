@@ -66,27 +66,18 @@ void GltfNode::SetScale(const glm::vec3& Scale)
 {
     mScale = Scale;
     mBlendScale = Scale;
-
-    mScaleMatrix = glm::scale(glm::mat4(1.0f), mBlendScale);
-    mLocalMatrixNeedsUpdate = true;
 }
 
 void GltfNode::SetTranslation(const glm::vec3& Translation)
 {
     mTranslation = Translation;
     mBlendTranslation = Translation;
-
-    mTranslationMatrix = glm::translate(glm::mat4(1.0f), mBlendTranslation);
-    mLocalMatrixNeedsUpdate = true;
 }
 
 void GltfNode::SetRotation(const glm::quat& Rotation)
 {
     mRotation = Rotation;
     mBlendRotation = Rotation;
-
-    mRotationMatrix = glm::mat4_cast(mBlendRotation);
-    mLocalMatrixNeedsUpdate = true;
 }
 
 void GltfNode::BlendScale(const glm::vec3 &Scale, float BlendFactor)
@@ -94,9 +85,6 @@ void GltfNode::BlendScale(const glm::vec3 &Scale, float BlendFactor)
     // Linear interp
     float Factor = std::clamp(BlendFactor, 0.0f, 1.0f);
     mBlendScale = Scale * Factor + mScale * (1.0f - Factor);
-
-    mScaleMatrix = glm::scale(glm::mat4(1.0f), mBlendScale);
-    mLocalMatrixNeedsUpdate = true;
 }
 
 void GltfNode::BlendTranslation(const glm::vec3 &Translation, float BlendFactor)
@@ -104,9 +92,6 @@ void GltfNode::BlendTranslation(const glm::vec3 &Translation, float BlendFactor)
     // Linear interp
     float Factor = std::clamp(BlendFactor, 0.0f, 1.0f);
     mBlendTranslation = Translation * Factor + mTranslation * (1.0f - Factor);
-
-    mTranslationMatrix = glm::translate(glm::mat4(1.0f), mBlendTranslation);
-    mLocalMatrixNeedsUpdate = true;
 }
 
 void GltfNode::BlendRotation(const glm::quat &Rotation, float BlendFactor)
@@ -114,18 +99,11 @@ void GltfNode::BlendRotation(const glm::quat &Rotation, float BlendFactor)
     // Slerp
     float Factor = std::clamp(BlendFactor, 0.0f, 1.0f);
     mBlendRotation = glm::slerp(mRotation, Rotation, Factor);
-
-    mRotationMatrix = glm::mat4_cast(mBlendRotation);
-    mLocalMatrixNeedsUpdate = true;
 }
 
 void GltfNode::SetWorldPosition(const glm::vec3 &Position)
 {
     mWorldPosition = Position;
-
-    mWorldTranslationMatrix = glm::translate(glm::mat4(1.0f), mWorldPosition);
-    mWorldTRMatrix = mWorldTranslationMatrix * mWorldRotationMatrix;
-    mLocalMatrixNeedsUpdate = true;
     UpdateNodeAndChildMatrices();
 }
 
@@ -137,14 +115,6 @@ void GltfNode::GetWorldPosition(glm::vec3 &OutWorldPos)
 void GltfNode::SetWorldRotation(const glm::vec3 &InRotation)
 {
     mWorldRotation = InRotation;
-
-    mWorldRotationMatrix = glm::mat4_cast(glm::quat(glm::vec3(
-        glm::radians(mWorldRotation.x),
-        glm::radians(mWorldRotation.y),
-        glm::radians(mWorldRotation.z)
-    )));
-    mWorldTRMatrix = mWorldTranslationMatrix * mWorldRotationMatrix;
-    mLocalMatrixNeedsUpdate = true;
     UpdateNodeAndChildMatrices();
 }
 
@@ -188,22 +158,31 @@ void GltfNode::GetGlobalPosition(glm::vec3 &OutPosition)
 
 void GltfNode::CalculateLocalTRSMatrix()
 {
-    if (mLocalMatrixNeedsUpdate)
-    {
-        mLocalTRSMatrix = mWorldTRMatrix * mTranslationMatrix * mRotationMatrix * mScaleMatrix;
-        mLocalMatrixNeedsUpdate = false;
-    }
+    glm::mat4 sMatrix = glm::scale(glm::mat4(1.0f), mBlendScale);
+    glm::mat4 rMatrix = glm::mat4_cast(mBlendRotation);
+    glm::mat4 tMatrix = glm::translate(glm::mat4(1.0f), mBlendTranslation);
+
+    glm::mat4 tWorldMatrix = glm::translate(glm::mat4(1.0f), mWorldPosition);
+    glm::mat4 rWorldMatrix = glm::mat4_cast(glm::quat(glm::vec3(
+      glm::radians(mWorldRotation.x),
+      glm::radians(mWorldRotation.y),
+      glm::radians(mWorldRotation.z)
+    )));
+
+    mLocalTRSMatrix = tWorldMatrix * rWorldMatrix * tMatrix * rMatrix * sMatrix;
+
 }
 
 void GltfNode::CalculateNodeMatrix()
 {
     CalculateLocalTRSMatrix();
+    glm::mat4 ParentMatrix = glm::mat4(1.0f);
     std::shared_ptr<GltfNode> ParentNode = mParentNode.lock();
     if (ParentNode)
     {
-        ParentNode->GetNodeMatrix(mParentNodeMatrix);
+        ParentNode->GetNodeMatrix(ParentMatrix);
     }
-    mNodeMatrix = mParentNodeMatrix * mLocalTRSMatrix;
+    mNodeMatrix = ParentMatrix * mLocalTRSMatrix;
 }
 
 void GltfNode::GetNodeMatrix(glm::mat4& OutNodeMatrix)
