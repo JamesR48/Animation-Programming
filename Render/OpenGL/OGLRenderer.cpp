@@ -15,6 +15,7 @@
 #include "VertexBuffer.h"
 #include "UniformBuffer.h"
 #include "ShaderStorageBuffer.h"
+#include "TextureBuffer.h"
 #include "Shader.h"
 #include "UserInterface.h"
 #include "../../Tools/Logger.h"
@@ -71,6 +72,7 @@ bool OGLRenderer::Init(unsigned int Width, unsigned int Height)
     mUniformBuffer = std::make_unique<UniformBuffer>();
     mGltfShaderStorageBuffer = std::make_unique<ShaderStorageBuffer>();
     mGltfDualQuatSSBuffer = std::make_unique<ShaderStorageBuffer>();
+    mGltfTextureBuffer = std::make_unique<TextureBuffer>();
     mUserInterface = std::make_unique<UserInterface>();
     mCamera = std::make_unique<Camera>();
 
@@ -134,39 +136,15 @@ bool OGLRenderer::Init(unsigned int Width, unsigned int Height)
     /* disable sRGB framebuffer */
     glDisable(GL_FRAMEBUFFER_SRGB);
 
-    /* loading 2x the woman and the dq model */
-    mGltfModels.resize(3);
-
-    std::string ModelFilename = "Resources/Assets/Woman.gltf";
-    std::string ModelTexFilename = "Resources/Textures/Woman.png";
-    for (int idx = 0; idx < 2; idx++)
-    {
-        if (idx == 1)
-        {
-            ModelTexFilename = "Resources/Textures/Woman2.png";
-        }
-
-        mGltfModels.at(idx) = std::make_shared<GltfModel>();
-        if (!mGltfModels.at(idx)->LoadModel(mRenderData, ModelFilename, ModelTexFilename))
-        {
-            Logger::Log(1, "%s: loading glTF model '%s' failed\n", __FUNCTION__, ModelFilename.c_str());
-            return false;
-        }
-        mGltfModels.at(idx)->UploadVertexBuffers();
-        mGltfModels.at(idx)->UploadIndexBuffer();
-        Logger::Log(1, "%s: glTF model '%s' succesfully loaded\n", __FUNCTION__, ModelFilename.c_str());
-    }
-
-    mGltfModels.at(2) = std::make_shared<GltfModel>();
-    ModelFilename = "Resources/Assets/dq.gltf";
-    ModelTexFilename = "Resources/Textures/dq.png";
-    if (!mGltfModels.at(2)->LoadModel(mRenderData, ModelFilename, ModelTexFilename))
-    {
+    mGltfModel = std::make_shared<GltfModel>();
+    std::string ModelFilename = "assets/Woman.gltf";
+    std::string ModelTexFilename = "textures/Woman.png";
+    if (!mGltfModel->LoadModel(mRenderData, ModelFilename, ModelTexFilename)) {
         Logger::Log(1, "%s: loading glTF model '%s' failed\n", __FUNCTION__, ModelFilename.c_str());
         return false;
     }
-    mGltfModels.at(2)->UploadVertexBuffers();
-    mGltfModels.at(2)->UploadIndexBuffer();
+    mGltfModel->UploadVertexBuffers();
+    mGltfModel->UploadIndexBuffer();
     Logger::Log(1, "%s: glTF model '%s' succesfully loaded\n", __FUNCTION__, ModelFilename.c_str());
 
     int NumTriangles = 0;
@@ -178,19 +156,9 @@ bool OGLRenderer::Init(unsigned int Width, unsigned int Height)
         int zPos = std::rand() % 40 - 20;
         int ModelIndex = std::rand() % 2;
         const glm::vec3 InstanceWorldPos = glm::vec3(static_cast<float>(xPos),0.0f, static_cast<float>(zPos));
-        auto Instance = std::make_shared<GltfInstance>(mGltfModels.at(ModelIndex), InstanceWorldPos, true);
+        auto Instance = std::make_shared<GltfInstance>(mGltfModel, InstanceWorldPos, true);
         mGltfInstances.emplace_back(Instance);
-        NumTriangles += mGltfModels.at(ModelIndex)->GetTriangleCount();
-    }
-
-    for (int i = 0; i < 25; ++i)
-    {
-        int xPos = std::rand() % 50 - 25;
-        int zPos = std::rand() % 20 - 50;
-        const glm::vec3 InstanceWorldPos = glm::vec3(static_cast<float>(xPos),0.0f, static_cast<float>(zPos));
-        auto Instance = std::make_shared<GltfInstance>(mGltfModels.at(2), InstanceWorldPos, true);
-        mGltfInstances.emplace_back(Instance);
-        NumTriangles += mGltfModels.at(2)->GetTriangleCount();
+        NumTriangles += mGltfModel->GetTriangleCount();
     }
 
     /* data to be displayed on the UI */
@@ -212,8 +180,11 @@ bool OGLRenderer::Init(unsigned int Width, unsigned int Height)
         ModelJointDualQuatBufferSize += Instance->GetJointDualQuatsSize() * sizeof(glm::mat2x4);
     }
 
-    mGltfShaderStorageBuffer->Init(ModelJointMatrixBufferSize);
-    Logger::Log(1, "%s: glTF joint matrix shader storage buffer (size %i bytes) successfully created\n", __FUNCTION__, ModelJointMatrixBufferSize);
+    mGltfTextureBuffer->Init(ModelJointMatrixBufferSize);
+    Logger::Log(1, "%s: glTF joint matrix texture buffer (size %i bytes) successfully created\n", __FUNCTION__, ModelJointMatrixBufferSize);
+
+    //mGltfShaderStorageBuffer->Init(ModelJointMatrixBufferSize);
+    //Logger::Log(1, "%s: glTF joint matrix shader storage buffer (size %i bytes) successfully created\n", __FUNCTION__, ModelJointMatrixBufferSize);
 
     mGltfDualQuatSSBuffer->Init(ModelJointDualQuatBufferSize);
     Logger::Log(1, "%s: glTF joint dual quaternions shader storage buffer (size %i bytes) successfully created\n", __FUNCTION__, ModelJointDualQuatBufferSize);
@@ -365,8 +336,8 @@ void OGLRenderer::Draw()
     mModelJointMatrices.clear();
     mModelJointDualQuats.clear();
 
-    mGltfMatrixInstances.clear();
-    mGltfDQInstances.clear();
+    unsigned int MatrixInstances = 0;
+    unsigned int DualQuatInstances = 0;
     unsigned int NumTriangles = 0;
 
     for (const std::shared_ptr<GltfInstance>& Instance : mGltfInstances)
@@ -384,21 +355,22 @@ void OGLRenderer::Draw()
             std::vector<glm::mat2x4> Quats;
             Instance->GetJointDualQuats(Quats);
             mModelJointDualQuats.insert(mModelJointDualQuats.end(),Quats.begin(), Quats.end());
-            mGltfDQInstances.emplace_back(Instance);
+            DualQuatInstances++;
         }
         else
         {
             std::vector<glm::mat4> Mats;
             Instance->GetJointMatrices(Mats);
             mModelJointMatrices.insert(mModelJointMatrices.end(), Mats.begin(), Mats.end());
-            mGltfMatrixInstances.emplace_back(Instance);
+            MatrixInstances++;
         }
         NumTriangles += Instance->GetGltfModel()->GetTriangleCount();
     }
 
     mRenderData.rdTriangleCount = NumTriangles;
 
-    mGltfShaderStorageBuffer->UploadSsboData(mModelJointMatrices, 1);
+    mGltfTextureBuffer->UploadTboData(mModelJointMatrices, 1);
+    //mGltfShaderStorageBuffer->UploadSsboData(mModelJointMatrices, 1);
     mGltfDualQuatSSBuffer->UploadSsboData(mModelJointDualQuats, 2);
 
     mRenderData.rdUploadToUBOTime = mUploadToUBOTimer->Stop();
@@ -415,26 +387,20 @@ void OGLRenderer::Draw()
     mRenderData.rdUploadToVBOTime = mUploadToVBOTimer->Stop();
 
     /* draw the glTF model */
-    unsigned int MatrixPos = 0;
-
     mGltfGPUShader->Use();
-    for (const std::shared_ptr<GltfInstance>& Instance : mGltfMatrixInstances)
-    {
-        /* set position inside the SSBO */
-        mGltfGPUShader->SetUniformValue(MatrixPos);
-        Instance->GetGltfModel()->Draw();
-        MatrixPos += Instance->GetJointMatrixSize();
-    }
+
+    /* TBOs activation must happen prior to the DrawInstanced() call of the model */
+    mGltfTextureBuffer->Bind();
+
+    /* set SSBO stride, identical for ALL models */
+    mGltfGPUShader->SetUniformValue(mGltfInstances.at(0)->GetJointMatrixSize());
+    mGltfModel->Draw(MatrixInstances);
 
     unsigned int DualQuatPos = 0;
 
     mGltfGPUDualQuatShader->Use();
-    for (const std::shared_ptr<GltfInstance>& Instance : mGltfDQInstances)
-    {
-        mGltfGPUDualQuatShader->SetUniformValue(DualQuatPos);
-        Instance->GetGltfModel()->Draw();
-        DualQuatPos += Instance->GetJointDualQuatsSize();
-    }
+    mGltfGPUDualQuatShader->SetUniformValue(DualQuatPos);
+    mGltfModel->Draw(DualQuatInstances);
 
     /* draw the coordinate arrow WITH depth buffer */
     if (mCoordArrowsLineIndexCount > 0)
@@ -491,12 +457,17 @@ void OGLRenderer::Cleanup()
     mFramebuffer.reset();
     mUniformBuffer->Cleanup();
     mUniformBuffer.reset();
-    mGltfShaderStorageBuffer->Cleanup();
-    mGltfShaderStorageBuffer.reset();
+    //mGltfShaderStorageBuffer->Cleanup();
+    //mGltfShaderStorageBuffer.reset();
     mGltfDualQuatSSBuffer->Cleanup();
     mGltfDualQuatSSBuffer.reset();
+    mGltfTextureBuffer->Cleanup();
+    mGltfTextureBuffer.reset();
     mUserInterface->Cleanup();
     mUserInterface.reset();
+
+    mGltfModel->Cleanup();
+    mGltfModel.reset();
 
     mLineMesh.reset();
     mCoordArrowsModel.reset();

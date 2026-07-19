@@ -15,18 +15,23 @@ layout (std140, binding = 0) uniform Matrices
     mat4 Projection;
 };
 
+// for Shader Storage Buffer Objects (SSBOs)
 layout (std430, binding = 2) readonly buffer JointDualQuats {
     mat2x4 JointDQs[];
 };
 
 uniform int aModelStride;
 
-mat2x4 GetJointTransform(ivec4 joints, vec4 weights) {
+mat2x4 GetJointTransform(ivec4 joints, vec4 weights)
+{
+    // advancing to the correct position in the buffer
+    const int StridePerInstance = gl_InstanceID * aModelStride;
+
     // read dual quaterions from buffer
-    mat2x4 dq0 = JointDQs[joints.x + aModelStride];
-    mat2x4 dq1 = JointDQs[joints.y + aModelStride];
-    mat2x4 dq2 = JointDQs[joints.z + aModelStride];
-    mat2x4 dq3 = JointDQs[joints.w + aModelStride];
+    mat2x4 dq0 = JointDQs[joints.x + StridePerInstance];
+    mat2x4 dq1 = JointDQs[joints.y + StridePerInstance];
+    mat2x4 dq2 = JointDQs[joints.z + StridePerInstance];
+    mat2x4 dq3 = JointDQs[joints.w + StridePerInstance];
 
     // shortest rotation
     weights.y *= sign(dot(dq0[0], dq1[0]));

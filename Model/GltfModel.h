@@ -38,7 +38,8 @@ public:
     ~GltfModel();
 
     bool LoadModel(OGLRenderData& RenderData, std::string ModelFilename, std::string TextureFilename);
-    void Draw();
+    /* if InstanceCount > 0, drawing will be performed with glDrawElementsInstanced */
+    void Draw(int InstanceCount = 0);
     void Cleanup();
     void UploadVertexBuffers();
     void UploadIndexBuffer();

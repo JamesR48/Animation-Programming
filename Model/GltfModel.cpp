@@ -82,7 +82,7 @@ bool GltfModel::LoadModel(OGLRenderData &RenderData, std::string ModelFilename, 
     return true;
 }
 
-void GltfModel::Draw()
+void GltfModel::Draw(int InstanceCount)
 {
     const tinygltf::Primitive &Primitives = mModel->meshes.at(0).primitives.at(0);
     const tinygltf::Accessor &IndexAccessor = mModel->accessors.at(Primitives.indices);
@@ -104,10 +104,22 @@ void GltfModel::Draw()
 
     // using glDrawElements() instead of glDrawArrays() as we have indexed geometry in the model
     // componentType is defined with the same internal value as in OpenGL
-    glDrawElements(DrawMode, IndexAccessor.count, IndexAccessor.componentType, nullptr);
+    if (InstanceCount > 0)
+    {
+        glDrawElementsInstanced(DrawMode, IndexAccessor.count, IndexAccessor.componentType, nullptr, InstanceCount);
+    }
+    else
+    {
+        glDrawElements(DrawMode, IndexAccessor.count, IndexAccessor.componentType, nullptr);
+    }
 
     glBindVertexArray(0);
     mTex->Unbind();
+}
+
+void GltfModel::DrawInstanced(const int InstanceCount)
+{
+
 }
 
 void GltfModel::Cleanup()

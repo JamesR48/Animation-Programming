@@ -12,6 +12,7 @@ class Framebuffer;
 class VertexBuffer;
 class UniformBuffer;
 class ShaderStorageBuffer;
+class TextureBuffer;
 class UserInterface;
 class Camera;
 class Timer;
@@ -44,6 +45,7 @@ private:
     std::unique_ptr<UniformBuffer> mUniformBuffer = nullptr;
     std::unique_ptr<ShaderStorageBuffer> mGltfShaderStorageBuffer = nullptr;
     std::unique_ptr<ShaderStorageBuffer> mGltfDualQuatSSBuffer = nullptr;
+    std::unique_ptr<TextureBuffer> mGltfTextureBuffer = nullptr;
     std::unique_ptr<UserInterface> mUserInterface = nullptr;
     std::unique_ptr<Camera> mCamera = nullptr;
 
@@ -70,13 +72,8 @@ private:
     unsigned int mSkeletonLineIndexCount = 0;
     unsigned int mCoordArrowsLineIndexCount = 0;
 
-    std::vector<std::shared_ptr<GltfModel>> mGltfModels{};
-
+    std::shared_ptr<GltfModel> mGltfModel = nullptr;
     std::vector<std::shared_ptr<GltfInstance>> mGltfInstances{};
-    /* instances using joint matrices */
-    std::vector<std::shared_ptr<GltfInstance>> mGltfMatrixInstances{};
-    /* instances using dual quats */
-    std::vector<std::shared_ptr<GltfInstance>> mGltfDQInstances{};
 
     std::vector<glm::mat4> mModelJointMatrices{};
     std::vector<glm::mat2x4> mModelJointDualQuats{};
