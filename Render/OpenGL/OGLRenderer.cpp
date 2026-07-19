@@ -72,7 +72,7 @@ bool OGLRenderer::Init(unsigned int Width, unsigned int Height)
     mUniformBuffer = std::make_unique<UniformBuffer>();
     mGltfShaderStorageBuffer = std::make_unique<ShaderStorageBuffer>();
     mGltfDualQuatSSBuffer = std::make_unique<ShaderStorageBuffer>();
-    mGltfTextureBuffer = std::make_unique<TextureBuffer>();
+    //mGltfTextureBuffer = std::make_unique<TextureBuffer>();
     mUserInterface = std::make_unique<UserInterface>();
     mCamera = std::make_unique<Camera>();
 
@@ -137,8 +137,8 @@ bool OGLRenderer::Init(unsigned int Width, unsigned int Height)
     glDisable(GL_FRAMEBUFFER_SRGB);
 
     mGltfModel = std::make_shared<GltfModel>();
-    std::string ModelFilename = "assets/Woman.gltf";
-    std::string ModelTexFilename = "textures/Woman.png";
+    std::string ModelFilename = "Resources/Assets/Woman.gltf";
+    std::string ModelTexFilename = "Resources/Textures/Woman.png";
     if (!mGltfModel->LoadModel(mRenderData, ModelFilename, ModelTexFilename)) {
         Logger::Log(1, "%s: loading glTF model '%s' failed\n", __FUNCTION__, ModelFilename.c_str());
         return false;
@@ -180,11 +180,11 @@ bool OGLRenderer::Init(unsigned int Width, unsigned int Height)
         ModelJointDualQuatBufferSize += Instance->GetJointDualQuatsSize() * sizeof(glm::mat2x4);
     }
 
-    mGltfTextureBuffer->Init(ModelJointMatrixBufferSize);
-    Logger::Log(1, "%s: glTF joint matrix texture buffer (size %i bytes) successfully created\n", __FUNCTION__, ModelJointMatrixBufferSize);
+    //mGltfTextureBuffer->Init(ModelJointMatrixBufferSize);
+    //Logger::Log(1, "%s: glTF joint matrix texture buffer (size %i bytes) successfully created\n", __FUNCTION__, ModelJointMatrixBufferSize);
 
-    //mGltfShaderStorageBuffer->Init(ModelJointMatrixBufferSize);
-    //Logger::Log(1, "%s: glTF joint matrix shader storage buffer (size %i bytes) successfully created\n", __FUNCTION__, ModelJointMatrixBufferSize);
+    mGltfShaderStorageBuffer->Init(ModelJointMatrixBufferSize);
+    Logger::Log(1, "%s: glTF joint matrix shader storage buffer (size %i bytes) successfully created\n", __FUNCTION__, ModelJointMatrixBufferSize);
 
     mGltfDualQuatSSBuffer->Init(ModelJointDualQuatBufferSize);
     Logger::Log(1, "%s: glTF joint dual quaternions shader storage buffer (size %i bytes) successfully created\n", __FUNCTION__, ModelJointDualQuatBufferSize);
@@ -369,8 +369,8 @@ void OGLRenderer::Draw()
 
     mRenderData.rdTriangleCount = NumTriangles;
 
-    mGltfTextureBuffer->UploadTboData(mModelJointMatrices, 1);
-    //mGltfShaderStorageBuffer->UploadSsboData(mModelJointMatrices, 1);
+    //mGltfTextureBuffer->UploadTboData(mModelJointMatrices, 1);
+    mGltfShaderStorageBuffer->UploadSsboData(mModelJointMatrices, 1);
     mGltfDualQuatSSBuffer->UploadSsboData(mModelJointDualQuats, 2);
 
     mRenderData.rdUploadToUBOTime = mUploadToUBOTimer->Stop();
@@ -390,7 +390,7 @@ void OGLRenderer::Draw()
     mGltfGPUShader->Use();
 
     /* TBOs activation must happen prior to the DrawInstanced() call of the model */
-    mGltfTextureBuffer->Bind();
+    //mGltfTextureBuffer->Bind();
 
     /* set SSBO stride, identical for ALL models */
     mGltfGPUShader->SetUniformValue(mGltfInstances.at(0)->GetJointMatrixSize());
@@ -457,12 +457,12 @@ void OGLRenderer::Cleanup()
     mFramebuffer.reset();
     mUniformBuffer->Cleanup();
     mUniformBuffer.reset();
-    //mGltfShaderStorageBuffer->Cleanup();
-    //mGltfShaderStorageBuffer.reset();
+    mGltfShaderStorageBuffer->Cleanup();
+    mGltfShaderStorageBuffer.reset();
     mGltfDualQuatSSBuffer->Cleanup();
     mGltfDualQuatSSBuffer.reset();
-    mGltfTextureBuffer->Cleanup();
-    mGltfTextureBuffer.reset();
+    //mGltfTextureBuffer->Cleanup();
+    //mGltfTextureBuffer.reset();
     mUserInterface->Cleanup();
     mUserInterface.reset();
 

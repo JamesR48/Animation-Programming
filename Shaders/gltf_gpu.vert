@@ -17,27 +17,28 @@ layout (std140, binding = 0) uniform Matrices
 
 uniform int aModelStride;
 
-// for Texture Buffer Objects (TBOs)
-layout (binding = 1) uniform samplerBuffer JointMatrices;
-
-mat4 GetMatrix(int Offset)
+// for Shader Storage Buffer Objects (SSBOs)
+layout (std430, binding = 1) readonly buffer JointMatrices
 {
-    return mat4(texelFetch(JointMatrices, Offset), texelFetch(JointMatrices, Offset + 1),
-            texelFetch(JointMatrices, Offset + 2), texelFetch(JointMatrices, Offset + 3));
-}
+    mat4 JointMat[];
+};
+
+//mat4 GetMatrix(int Offset)
+//{
+//    return mat4(texelFetch(JointMatrices, Offset), texelFetch(JointMatrices, Offset + 1),
+//            texelFetch(JointMatrices, Offset + 2), texelFetch(JointMatrices, Offset + 3));
+//}
 
 void main()
 {
     // advancing to the correct position in the buffer
     const int StridePerInstance = gl_InstanceID * aModelStride;
 
-    /* multiplying by 4 as the TBO contains float values instead of the mat4 values
-     from the SSBO and the goal is reaching the same data as before */
     mat4 SkinMat =
-    aJointWeight.x * GetMatrix((int(aJointIndices.x) + StridePerInstance) * 4) +
-    aJointWeight.y * GetMatrix((int(aJointIndices.y) + StridePerInstance) * 4) +
-    aJointWeight.z * GetMatrix((int(aJointIndices.z) + StridePerInstance) * 4) +
-    aJointWeight.w * GetMatrix((int(aJointIndices.w) + StridePerInstance) * 4);
+    aJointWeight.x * JointMat[int(aJointIndices.x) + StridePerInstance] +
+    aJointWeight.y * JointMat[int(aJointIndices.y) + StridePerInstance] +
+    aJointWeight.z * JointMat[int(aJointIndices.z) + StridePerInstance] +
+    aJointWeight.w * JointMat[int(aJointIndices.w) + StridePerInstance];
 
     gl_Position = Projection * View * SkinMat * vec4(aPos, 1.0);
     Normal = vec3(transpose(inverse(SkinMat)) * vec4(aNormal, 1.0));

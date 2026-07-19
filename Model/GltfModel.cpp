@@ -117,11 +117,6 @@ void GltfModel::Draw(int InstanceCount)
     mTex->Unbind();
 }
 
-void GltfModel::DrawInstanced(const int InstanceCount)
-{
-
-}
-
 void GltfModel::Cleanup()
 {
     glDeleteBuffers(mVertexVBO.size(), mVertexVBO.data());
