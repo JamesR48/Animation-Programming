@@ -80,11 +80,25 @@ private:
     glm::vec3 mWorldPosition = glm::vec3(0.0f);
     glm::vec3 mWorldRotation = glm::vec3(0.0f);
 
+    glm::mat4 mTranslationMatrix = glm::mat4(1.0f);
+    glm::mat4 mRotationMatrix = glm::mat4(1.0f);
+    glm::mat4 mScaleMatrix = glm::mat4(1.0f);
+
+    /* global translation and rotation matrices of the model instance */
+    glm::mat4 mWorldTranslationMatrix = glm::mat4(1.0f);
+    glm::mat4 mWorldRotationMatrix = glm::mat4(1.0f);
+
+    /* cached WorldTranslation * WorldRotation */
+    glm::mat4 mWorldTRMatrix = glm::mat4(1.0f);
+
+    bool mLocalMatrixNeedsUpdate = true;
+
     // TRS: Translation * Rotation * Scale
     glm::mat4 mLocalTRSMatrix = glm::mat4(1.0f);
 
     // parentNodeMatrix * mLocalTRSMatrix
     glm::mat4 mNodeMatrix = glm::mat4(1.0f);
+    glm::mat4 mParentNodeMatrix = glm::mat4(1.0f);
 
     glm::mat4 mInverseBindMatrix = glm::mat4(1.0f);
 };
